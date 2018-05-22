@@ -2,6 +2,7 @@
 
 namespace XDOM;
 
+use XDOM\Exceptions\Exception;
 use XDOM\Exceptions\FormatException;
 use XDOM\Exceptions\UnknownPseudoException;
 use XDOM\Exceptions\UnknownSelectorException;
@@ -123,7 +124,7 @@ class Parser
             case '$=':
                 return ['[', 'ends-with(@' . $match[1] . ', "' . $match[4] . '")', ']'];
         }
-        return null;
+        throw new FormatException($match[0]);
     }
 
     private static function parseXCHILD(array $match): ?array
@@ -166,13 +167,14 @@ class Parser
                     return ['[', '((count() - position()) mod ' . $match[5] . ' = 1)', ']'];
                 }
                 return ['[', '(((count() - position()) mod ' . $match[4] . ') = ' . $match[5] . ')', ']'];
-            case 'only-of-type':
-            case 'nth-of-type':
-            case 'first-of-type':
-            case 'nth-last-of-type':
-            default:
-                throw new UnknownPseudoException($match[0]);
+            //case 'only-of-type':
+            //case 'nth-of-type':
+            //case 'first-of-type':
+            //case 'nth-last-of-type':
+            //default:
         }
+
+        throw new UnknownPseudoException($match[0]);
     }
 
     private static function parseXPSEUDOS(array $match): ?array
@@ -233,7 +235,7 @@ class Parser
 
                 $xpath = ['type' => $type, 'part' => $xpart];
 
-                if ($type !== 'AXES') {
+                if (!isset($next)) {
                     $next = substr($part, strlen($match[0]));
                 }
 
@@ -253,10 +255,18 @@ class Parser
         throw new UnknownSelectorException($part);
     }
 
+    /**
+     * @param array $xparts
+     * @param null $type
+     * @param int $_
+     *
+     * @return array
+     * @throws \XDOM\Exceptions\Exception
+     */
     private static function renderParts(array $xparts, $type = null, $_ = 0): array
     {
         $global_starts = '';
-        $sub = '';
+        $next = '';
         $parts = [];
         $prefix = '//';
         $suffix = '';
@@ -271,7 +281,7 @@ class Parser
         foreach ($xparts as $xpart) {
             if (!isset($xpart['type'])) {
                 $x = self::renderParts($xpart, $type, $_ + 1);
-                $sub .= $x['x'];
+                $next .= $x['x'];
                 $global_starts .= $x['gs'];
                 continue;
             }
@@ -289,7 +299,7 @@ class Parser
             switch ($xpart['type']) {
                 case 'AXES':
                     if ($type == 'PSEUDOS') {
-                        die('wrong');
+                        throw new Exception("PSEUDOS doesn\'t support next selector (' ', '>', '+', '~')");
                     }
                     $prefix = $xpart['part'][0];
                     $suffix = $xpart['part'][1];
@@ -329,9 +339,18 @@ class Parser
             }
         }
 
-        return ['x' => ($_ === 0 ? $global_starts : '') . $prefix . $tag . implode('', $parts) . $suffix . $sub, 'gs' => $global_starts];
+        return ['x' => ($_ === 0 ? $global_starts : '') . $prefix . $tag . implode('', $parts) . $suffix . $next, 'gs' => $global_starts];
     }
 
+    /**
+     * @param string $query
+     *
+     * @return string
+     * @throws \XDOM\Exceptions\Exception
+     * @throws \XDOM\Exceptions\FormatException
+     * @throws \XDOM\Exceptions\UnknownPseudoException
+     * @throws \XDOM\Exceptions\UnknownSelectorException
+     */
     public static function parseQuery(string $query): string
     {
         return self::renderParts(self::extractParts($query))['x'];

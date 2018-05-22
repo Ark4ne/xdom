@@ -1,2 +1,2 @@
 # xdom
-PHP \DOM jQuery Selector. Convert jQuery selector to xPath
+PHP \DOM jQuery like Selector. Convert jQuery selector to xPath.

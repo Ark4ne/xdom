@@ -1,0 +1,36 @@
+{
+  "name": "ark4ne/xdom",
+  "description": "DOM jQuery Selector. Convert jQuery selector to xPath",
+  "keywords": [
+    "dom",
+    "xpath",
+    "selector",
+    "css",
+    "jquery"
+  ],
+  "minimum-stability": "dev",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Ark4ne (Guillaume Allegret)",
+      "email": "gui.allegret@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=7.2",
+    "ext-dom": "*"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "~5.6"
+  },
+  "autoload": {
+    "psr-4": {
+      "XDOM\\": "src"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Test\\": "tests/Test"
+    }
+  }
+}

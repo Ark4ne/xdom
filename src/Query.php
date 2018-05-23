@@ -14,7 +14,7 @@ class Query
 
     public static function query(\DOMNode $node, string $query): ?\DOMNodeList
     {
-        $xquery = Parser::parseQuery($query);
+        $xquery = Parser::parse($query);
 
         if (empty($xquery)) {
             return new \DOMNodeList();

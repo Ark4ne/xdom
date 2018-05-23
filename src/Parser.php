@@ -4,8 +4,6 @@ namespace XDOM;
 
 use XDOM\Exceptions\Exception;
 use XDOM\Exceptions\FormatException;
-use XDOM\Exceptions\UnknownPseudoException;
-use XDOM\Exceptions\UnknownSelectorException;
 
 /**
  * Class Parser
@@ -19,7 +17,7 @@ class Parser
     private const _x_whitespace = "[\\x20\\t\\r\\n\\f]";
 
     // http://www.w3.org/TR/CSS21/syndata.html#value-def-identifier
-    private const _x_identifier = "(?:\\\\.|[\\w-])+";
+    private const _x_identifier = "(?:\\\\.|[\\w-]|[^\\0-\\xa0])+";
 
     // Attribute selectors: http://www.w3.org/TR/selectors/#attribute-selectors
     private const _x_attributes = "\\[" . self::_x_whitespace . "*(" . self::_x_identifier . ")(?:" . self::_x_whitespace .
@@ -39,8 +37,9 @@ class Parser
     ".*" .
     ")\\)|)";
 
+    private const x_comma = "@^" . self::_x_whitespace . "*," . self::_x_whitespace . "*@";
 
-    const X_AXES = "@^\s*( |\~|\>|\+)@";
+    private const x_combinators = "@^" . self::_x_whitespace . "*([>+~]|" . self::_x_whitespace . ")" . self::_x_whitespace . "*@";
 
     const X_ID = "@^#(" . self::_x_identifier . ")@";
 
@@ -56,78 +55,47 @@ class Parser
     "*(even|odd|(([+-]|)(\\d*)n|)" . self::_x_whitespace . "*(?:([+-]|)" . self::_x_whitespace .
     "*(\\d+)|))" . self::_x_whitespace . "*\\)|)@i";
 
-    const EXPR = [
-      "AXES" => self::X_AXES,
-      "TAG" => self::X_TAG,
-      "ID" => self::X_ID,
-      "CLASS" => self::X_CLASS,
-      "ATTR" => self::X_ATTR,
-      "CHILD" => self::X_CHILD,
-      "PSEUDOS" => self::X_PSEUDOS,
+    const MATCHERS = [
+        "TAG"     => self::X_TAG,
+        "ID"      => self::X_ID,
+        "CLASS"   => self::X_CLASS,
+        "ATTR"    => self::X_ATTR,
+        "CHILD"   => self::X_CHILD,
+        "PSEUDOS" => self::X_PSEUDOS,
     ];
 
-    private static function parseXAXES(array $match): ?array
+    /**
+     * @param array $match
+     *
+     * @return array
+     * @throws \XDOM\Exceptions\FormatException
+     */
+    private static function tokenizeATTR(array $match)
     {
-        switch ($match[1] ?? null) {
-            case ' ':
-                return ['//', ''];
-            case '>':
-                return ['/', ''];
-            case '~':
-                return ['following-sibling::', ''];
-            case '+':
-                return ['following-sibling::', '[1]'];
-        }
+        $match = array_filter($match);
 
-        throw new FormatException($match[0]);
-    }
-
-    private static function parseXTAG(array $match): ?array
-    {
-        if (isset($match[1])) {
-            return ['', $match[1], ''];
-        }
-        throw new FormatException($match[0]);
-    }
-
-    private static function parseXID(array $match): ?array
-    {
-        if (isset($match[1])) {
-            return ['[', '@id="' . $match[1] . '"', ']'];
-        }
-        throw new FormatException($match[0]);
-    }
-
-    private static function parseXCLASS(array $match): ?array
-    {
-        if (isset($match[1])) {
-            return ['[', 'contains(concat(" ", normalize-space(@class), " "), " ' . $match[1] . ' ")', ']'];
-        }
-        throw new FormatException($match[0]);
-    }
-
-    private static function parseXATTR(array $match): ?array
-    {
         if (!isset($match[1])) {
             throw new FormatException($match[0]);
         }
-        if (!isset($match[2])) {
-            return ['[', '@' . $match[1], ']'];
-        }
-        switch ($match[2]) {
-            case '=':
-                return ['[', '@' . $match[1] . '="' . $match[4] . '"', ']'];
-            case '*=':
-                return ['[', 'contains(@' . $match[1] . ', "' . $match[4] . '")', ']'];
-            case '^=':
-                return ['[', 'starts-with(@' . $match[1] . ', "' . $match[4] . '")', ']'];
-            case '$=':
-                return ['[', 'ends-with(@' . $match[1] . ', "' . $match[4] . '")', ']'];
-        }
-        throw new FormatException($match[0]);
+
+        $match[2] = $match[2] ?? null;
+        $match[3] = $match[3] ?? $match[4] ?? $match[5] ?? '';
+
+        return [
+            $match[0],
+            $match[1],
+            $match[2],
+            $match[3],
+        ];
     }
 
-    private static function parseXCHILD(array $match): ?array
+    /**
+     * @param array $match
+     *
+     * @return array
+     * @throws \XDOM\Exceptions\FormatException
+     */
+    private static function tokenizeCHILD(array $match)
     {
         if (substr($match[1], 0, 3) === 'nth') {
             if (empty($match[3])) {
@@ -135,38 +103,231 @@ class Parser
             }
 
             $match[4] = +(
-              $match[4] ?? null
-                ? intval($match[5]) + intval(empty($match[6]) ? 1 : $match[6])
-                : 2 * ($match[3] === 'even' || $match[3] === 'odd')
+                $match[4] ?? null
+                    ? intval($match[5]) + intval(empty($match[6]) ? 1 : $match[6])
+                    : 2 * ($match[3] === 'even' || $match[3] === 'odd')
             );
 
             $match[5] = +(
             empty(intval($match[7] ?? 0) + intval($match[8] ?? 0))
-              ? $match[3] === 'odd'
-              : intval($match[7] ?? 0) + intval($match[8] ?? 0)
+                ? $match[3] === 'odd'
+                : intval($match[7] ?? 0) + intval($match[8] ?? 0)
             );
 
         } elseif (empty($match[2])) {
             throw new FormatException($match[0]);
         }
 
-        switch (implode('-', array_filter([$match[1], $match[2]]))) {
+        return $match;
+    }
+
+    /**
+     * @param array $match
+     *
+     * @return array|null
+     * @throws \XDOM\Exceptions\Exception
+     * @throws \XDOM\Exceptions\FormatException
+     */
+    private static function tokenizePSEUDOS(array $match)
+    {
+        if (preg_match(self::X_CHILD, $match[0])) {
+            return null;
+        }
+
+        $match = array_filter($match);
+
+        $match[2] = $match[2] ?? null;
+
+        $unquote = !isset($match[6]) ? $match[2] : null;
+
+        if (isset($match[3])) {
+            $match[2] = $match[4] ?? $match[5] ?? '';
+        } elseif ($unquote && preg_match(self::X_PSEUDOS, $unquote)) {
+            $token = self::tokenize($unquote, true);
+
+            if ($token['excess']) {
+                $token['excess'] = strpos($unquote, ')', strlen($unquote) - $token['excess']) - strlen($unquote);
+                if ($token['excess']) {
+                    $match[0] = substr($match[0], 0, $token['excess']);
+                    $match[2] = substr($unquote, 0, $token['excess']);
+                }
+            }
+        }
+
+        return array_slice($match, 0, 3);
+    }
+
+    /**
+     * @param string $selector
+     * @param bool   $parseOnly
+     *
+     * @return array
+     * @throws \XDOM\Exceptions\Exception
+     * @throws \XDOM\Exceptions\FormatException
+     */
+    public static function tokenize(string $selector, $parseOnly = false): array
+    {
+        static $cache;
+
+        if (isset($cache[$selector])) {
+            return $parseOnly ? ['tokens' => $cache[$selector], 'excess' => 0] : $cache[$selector];
+        }
+
+        $matched = null;
+        $groups = [];
+
+        $query = $selector;
+
+        while ($query) {
+            if (!$matched || preg_match(self::x_comma, $query, $match)) {
+                if (isset($match)) {
+                    $q = $query;
+                    $query = substr($query, strlen($match[0]));
+
+                    if (empty($query)) {
+                        $query = $q;
+                    }
+                }
+                $groups[] = [];
+                $token = &$groups[count($groups) - 1];
+            }
+
+            $matched = false;
+
+            if (preg_match(self::x_combinators, $query, $match)) {
+                $token[] = [
+                    'type'    => 'COMBINATOR',
+                    'matched' => $matched = array_shift($match),
+                    'value'   => trim($match[0]),
+                ];
+
+                $query = substr($query, strlen($matched));
+            }
+
+            foreach (self::MATCHERS as $type => $expr) {
+                if (preg_match($expr, $query, $match)) {
+                    switch ($type) {
+                        case "ATTR":
+                            $match = self::tokenizeATTR($match);
+                            break;
+                        case "CHILD":
+                            $match = self::tokenizeCHILD($match);
+                            break;
+                        case "PSEUDOS":
+                            $match = self::tokenizePSEUDOS($match);
+                            break;
+                    }
+
+                    $matched = array_shift($match);
+
+                    $token[] = [
+                        'value'   => $matched,
+                        'type'    => $type,
+                        'matched' => $match,
+                    ];
+
+                    $query = substr($query, strlen($matched));
+                }
+            }
+
+
+            if (empty($matched)) {
+                break;
+            }
+        }
+
+        if ($parseOnly) {
+            return ['tokens' => $groups, 'excess' => strlen($query)];
+        }
+
+        if (!empty($query)) {
+            throw new Exception($query);
+        }
+
+        return $cache[$selector] = $groups;
+    }
+
+    private static function renderCombinator(array $token)
+    {
+        switch ($token['value']) {
+            case '~':
+                return null;
+            case '+':
+                return '/following-sibling::*';
+            case '>':
+                return '/*';
+            case ' ':
+            default:
+                return '//*';
+        }
+    }
+
+    private static function renderTag(array $token)
+    {
+        return 'self::' . $token['value'];
+    }
+
+    private static function renderId(array $token)
+    {
+        return '@id="' . $token['matched'][0] . '"';
+    }
+
+    private static function renderClass(array $token)
+    {
+        return 'contains(concat(" ", normalize-space(@class), " "), " ' . $token['matched'][0] . ' ")';
+    }
+
+    private static function renderAttr(array $token)
+    {
+        $matched = $token['matched'];
+
+        if (empty($matched[1])) {
+            return '@' . $matched[0];
+        }
+
+        switch ($matched[1]) {
+            case '=':
+                return '@' . $matched[0] . '="' . $matched[2] . '"';
+            case '!=':
+                return '@' . $matched[0] . '!="' . $matched[2] . '"';
+            case '*=':
+                return 'contains(@' . $matched[0] . ', "' . $matched[2] . '")';
+            case '~=':
+                return 'contains(concat(" ", @' . $matched[0] . ', " "), " ' . $matched[2] . ' ")';
+            case '|=':
+                return 'starts-with(@' . $matched[0] . ', "' . $matched[2] . '-")';
+            case '^=':
+                return 'starts-with(@' . $matched[0] . ', "' . $matched[2] . '")';
+            case '$=':
+                return 'ends-with(@' . $matched[0] . ', "' . $matched[2] . '")';
+        }
+
+        throw new Exception("WTF:" . $matched[1]);
+    }
+
+    private static function renderChild(array $token)
+    {
+        $matched = $token['matched'];
+
+        switch (implode('-', array_filter([$matched[0], $matched[1]]))) {
             case 'only-child':
-                return ['[', 'count(*)=1', ']'];
+                return '(count(*)=1)';
             case 'last-child':
-                return ['[', 'last()', ']'];
+                return '(last())';
             case 'first-child':
-                return ['[', '(position() = 1)', ']'];
+                return '(position() = 1)';
             case 'nth-child':
-                if (empty($match[4])) {
-                    return ['[', '(position() mod ' . $match[5] . ' = 1)', ']'];
+                if (empty($matched[3])) {
+                    return '(position() mod ' . $matched[4] . ' = 1)';
                 }
-                return ['[', '((position() mod ' . $match[4] . ') = ' . $match[5] . ')', ']'];
+
+                return '(position() mod ' . $matched[3] . ' = ' . $matched[4] . ')';
             case 'nth-last-child':
-                if (empty($match[4])) {
-                    return ['[', '((count() - position()) mod ' . $match[5] . ' = 1)', ']'];
+                if (empty($matched[3])) {
+                    return '((count() - position()) mod ' . $matched[4] . ' = 1)';
                 }
-                return ['[', '(((count() - position()) mod ' . $match[4] . ') = ' . $match[5] . ')', ']'];
+
+                return '((count() - position()) mod ' . $matched[3] . ' = ' . $matched[4] . ')';
             //case 'only-of-type':
             //case 'nth-of-type':
             //case 'first-of-type':
@@ -174,185 +335,97 @@ class Parser
             //default:
         }
 
-        throw new UnknownPseudoException($match[0]);
+        throw new Exception("");
     }
 
-    private static function parseXPSEUDOS(array $match): ?array
+    private static function renderPseudos(array $token)
     {
-        switch ($match[1]) {
-            case 'parent':
-                return ['', '..', ''];
-            case 'contains':
-                return ['', 'contains(@text, "' . $match[2] . '")', ''];
+        $matched = $token['matched'];
+
+        switch ($matched[0]) {
             case 'not':
-                return ['[', 'not', ']', 'expr' => self::extractParts($match[2])];
+                return 'not(' . self::render(self::tokenize($matched[1]), true) . ')';
             case 'has':
-                return ['[', '.' . self::parseQuery($match[2]), ']'];
-            case 'first':
-                return ['', ')[1]', '', 'global_starts' => '('];
-            case 'last':
-                return ['', ')[last()]', '', 'global_starts' => '('];
-            case 'even':
-                return ['', ')[(position() mod 2 = 0)]', '', 'global_starts' => '('];
-            case 'odd':
-                return ['', ')[(position() mod 2 = 1)]', '', 'global_starts' => '('];
+                return '.' . self::render(self::tokenize($matched[1]));
+            case 'contains':
+                return 'contains(text(), "' . $matched[1] . '")';
         }
-
-        throw new UnknownPseudoException($match[1]);
     }
 
-    private static function extractParts(string $part): array
+    private static function render(array $tokens, $boolean = false): string
     {
-        foreach (self::EXPR as $type => $expr) {
-            if (preg_match($expr, $part, $match)) {
-                switch ($type) {
-                    case 'AXES':
-                        $xpart = self::parseXAXES($match);
-                        $next = trim(substr($part, strlen($match[0])));
-                        break;
-                    case 'TAG':
-                        $xpart = self::parseXTAG($match);
-                        break;
-                    case 'ID':
-                        $xpart = self::parseXID($match);
-                        break;
-                    case 'CLASS':
-                        $xpart = self::parseXCLASS($match);
-                        break;
-                    case 'ATTR':
-                        $xpart = self::parseXATTR($match);
-                        break;
-                    case 'CHILD':
-                        $xpart = self::parseXCHILD($match);
-                        break;
-                    case 'PSEUDOS':
-                        $xpart = self::parseXPSEUDOS($match);
-                }
-
-                if (empty($xpart)) {
-                    die($match[0]);
-                }
-
-                $xpath = ['type' => $type, 'part' => $xpart];
-
-                if (!isset($next)) {
-                    $next = substr($part, strlen($match[0]));
-                }
-
-                if (!empty($next)) {
-                    $xpath = array_merge([$xpath], self::extractParts($next));
-                    if ($type === 'AXES') {
-                        return [$xpath];
-                    } else {
-                        return $xpath;
-                    }
-                }
-
-                return [$xpath];
-            }
-        }
-
-        throw new UnknownSelectorException($part);
-    }
-
-    /**
-     * @param array $xparts
-     * @param null $type
-     * @param int $_
-     *
-     * @return array
-     * @throws \XDOM\Exceptions\Exception
-     */
-    private static function renderParts(array $xparts, $type = null, $_ = 0): array
-    {
-        $global_starts = '';
-        $next = '';
-        $parts = [];
-        $prefix = '//';
-        $suffix = '';
-        $tag = '*';
-
-        if ($type == 'PSEUDOS') {
-            $prefix = '';
-            $suffix = '';
-            $tag = '';
-        }
-
-        foreach ($xparts as $xpart) {
-            if (!isset($xpart['type'])) {
-                $x = self::renderParts($xpart, $type, $_ + 1);
-                $next .= $x['x'];
-                $global_starts .= $x['gs'];
+        foreach ($tokens as $token) {
+            if (!isset($token['type'])) {
+                $groups[] = self::render($token, $boolean);
                 continue;
             }
 
-            if (isset($xpart['part']['prefix'])) {
-                $prefix = $xpart['part']['prefix'];
-            }
-            if (isset($xpart['part']['suffix'])) {
-                $prefix = $xpart['part']['suffix'];
-            }
-            if (isset($xpart['part']['global_starts'])) {
-                $global_starts .= $xpart['part']['global_starts'];
+            if (isset($groups)) {
+                var_dump($groups);
+                throw new Exception("...");
             }
 
-            switch ($xpart['type']) {
-                case 'AXES':
-                    if ($type == 'PSEUDOS') {
-                        throw new Exception("PSEUDOS doesn\'t support next selector (' ', '>', '+', '~')");
+            switch ($token['type']) {
+                case 'COMBINATOR':
+                    if (!isset($parts)) {
+                        throw new Exception("...");
                     }
-                    $prefix = $xpart['part'][0];
-                    $suffix = $xpart['part'][1];
+                    $xpath = ($xpath ?? '') . '[' . implode(' and ', $parts) . ']' . self::renderCombinator($token);
+                    $parts = [];
                     break;
                 case 'TAG':
-                    if ($type == 'PSEUDOS') {
-                        $prefix = 'self::';
-                        $type = null;
-                    }
-                    $tag = $xpart['part'][1];
+                    $parts[] = self::renderTag($token);
                     break;
                 case 'ID':
+                    $parts[] = self::renderId($token);
+                    break;
                 case 'CLASS':
+                    $parts[] = self::renderClass($token);
+                    break;
                 case 'ATTR':
+                    $parts[] = self::renderAttr($token);
+                    break;
                 case 'CHILD':
-                    if ($type == 'PSEUDOS') {
-                        $parts[] = $xpart['part'][1];
-                    } else {
-                        $parts[] = $xpart['part'][0] . $xpart['part'][1] . $xpart['part'][2];
-                    }
+                    $parts[] = self::renderChild($token);
                     break;
                 case 'PSEUDOS':
-                    if (isset($xpart['part']['expr'])) {
-                        $x = self::renderParts($xpart['part']['expr'], 'PSEUDOS', 0);
-                        $parts[] =
-                          $x['gs'] .
-                          $xpart['part'][0] .
-                          $xpart['part'][1] .
-                          '(' . $x['x'] . ')' .
-                          $xpart['part'][2];
-                    } elseif ($type == 'PSEUDOS') {
-                        $parts[] = $xpart['part'][1];
-                    } else {
-                        $parts[] = $xpart['part'][0] . $xpart['part'][1] . $xpart['part'][2];
-                    }
+                    $parts[] = self::renderPseudos($token);
                     break;
+                default:
+                    throw new Exception('WTF:' . $token['type']);
             }
         }
 
-        return ['x' => ($_ === 0 ? $global_starts : '') . $prefix . $tag . implode('', $parts) . $suffix . $next, 'gs' => $global_starts];
+        if (isset($groups)) {
+            if (count($groups) === 1) {
+                return $groups[0];
+            }
+
+            return '(' . implode('|', $groups) . ')';
+        }
+
+        if (empty($xpath)) {
+            return ($boolean ? '(' : '//*[') . implode(' and ', $parts) . ($boolean ? ')' : ']');
+        }
+
+        $xpath = '//*' . $xpath;
+
+        if (empty($parts)) {
+            return $xpath;
+        }
+
+        return $xpath . '[' . implode(' and ', $parts ?? []) . ']';
     }
 
     /**
-     * @param string $query
+     * @param string $selector
      *
      * @return string
      * @throws \XDOM\Exceptions\Exception
      * @throws \XDOM\Exceptions\FormatException
-     * @throws \XDOM\Exceptions\UnknownPseudoException
-     * @throws \XDOM\Exceptions\UnknownSelectorException
      */
-    public static function parseQuery(string $query): string
+    public static function parse(string $selector): string
     {
-        return self::renderParts(self::extractParts($query))['x'];
+        return self::render(self::tokenize($selector));
     }
 }

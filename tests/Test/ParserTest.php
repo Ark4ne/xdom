@@ -136,6 +136,22 @@ class ParserTest extends TestCase
             'main ~ span:first',
             '//*[self::main]/following-sibling::*[count(./*[self::span][1])]',
           ],
+          [
+            'main ~ *:first',
+            '//*[self::main]/following-sibling::*[count(./*[self::*][1])]',
+          ],
+          [
+            'a:not(:has(span)):first',
+            '//*[self::a and not((.//*[self::span]))][1]',
+          ],
+          [
+            'section .text:first-child',
+            '//*[self::section]//*[contains(concat(" ", normalize-space(@class), " "), " text ") and (position() = 1)]',
+          ],
+          [
+            'section .text:first',
+            '(//*[self::section]//*[contains(concat(" ", normalize-space(@class), " "), " text ")])[1]',
+          ],
         ];
 
         $_ = [];
@@ -161,9 +177,8 @@ class ParserTest extends TestCase
 
     public function test()
     {
-        $this->assertEquals(
-          '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and not((.//*[self::a and @id="id"]))]//*[last()]',
-          Parser::parse('.foo:not(:has(a#id)) :last')
-        );
+        print_r(Parser::render2(Parser::preRender(Parser::tokenize('section:first a:first'))));
     }
+
+
 }

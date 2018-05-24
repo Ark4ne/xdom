@@ -346,27 +346,33 @@ class Parser
 
         switch ($matched[0]) {
             case 'not':
-                return 'not(' . self::render(self::tokenize($matched[1]), true) . ')';
+
+                return 'not(' . self::render2(self::preRender(self::tokenize($matched[1]))) . ')';
             case 'has':
-                return '.' . self::render(self::tokenize($matched[1]));
+                return '.' . self::parse($matched[1]);
             case 'contains':
                 return 'contains(text(), "' . $matched[1] . '")';
             case 'first':
                 return function ($xpath) {
-                    return $xpath . '[1]';
+                    return '(' . $xpath . ')[1]';
                 };
             case 'last':
                 return function ($xpath) {
-                    return $xpath . '[last()]';
+                    return '(' . $xpath . ')[last()]';
                 };
         }
     }
 
-    private static function render(array $tokens, $boolean = false): string
+    public static function preRender(array $tokens)
     {
+        $parts = null;
+        $callback = null;
+        $combinator = null;
+        $sections = [];
+
         foreach ($tokens as $token) {
             if (!isset($token['type'])) {
-                $groups[] = self::render($token, $boolean);
+                $groups[] = self::preRender($token);
                 continue;
             }
 
@@ -377,28 +383,14 @@ class Parser
 
             switch ($token['type']) {
                 case 'COMBINATOR':
-                    if (!isset($parts)) {
-                        throw new Exception("...");
-                    }
-
-                    $def = '[' . implode(' and ', $parts) . ']';
-
-                    foreach ($callback ?? [] as $cb) {
-                        $def = $cb($def);
-                    }
-
-                    $callback = [];
-                    $parts = [];
-
-                    $xpath = ($xpath ?? '') . $def;
+                    $sections[] = [
+                      'combinator' => $combinator ?? null,
+                      'conditions' => $parts ?? [],
+                      'callbacks' => $callback ?? null,
+                    ];
+                    $parts = null;
+                    $callback = null;
                     $combinator = self::renderCombinator($token);
-
-                    if (is_string($combinator)) {
-                        $xpath .= $combinator;
-                    } else {
-                        $callback[] = $combinator;
-                    }
-
                     break;
                 case 'TAG':
                     $parts[] = self::renderTag($token);
@@ -429,39 +421,63 @@ class Parser
         }
 
         if (isset($groups)) {
-            if (count($groups) === 1) {
-                return $groups[0];
+            return $groups;
+        }
+
+        $sections[] = [
+          'combinator' => $combinator ?? null,
+          'conditions' => $parts ?? [],
+          'callbacks' => $callback ?? null,
+        ];
+
+        return $sections;
+    }
+
+    public static function render2(array $groups, $boolean = false)
+    {
+        foreach ($groups as $sections) {
+            $xsections = '';
+
+            foreach ($sections as $section) {
+                if(is_null($section)){
+                    continue;
+                }
+                if (empty($section['conditions'])) {
+                    $xsection = '';
+                } else {
+                    $xsection = ($boolean ? '' : '[') . implode(' and ', $section['conditions']) . ($boolean ? '' : ']');
+                }
+
+                if(!$boolean){
+                    if (empty($section['combinator'])) {
+                        $xsection = '//*' . $xsection;
+                    } elseif (is_string($section['combinator'])) {
+                        $xsection = $section['combinator'] . $xsection;
+                    } else {
+                        $xsection = $section['combinator']($xsection);
+                    }
+                }
+
+                $xsections .= $xsection;
+
+                foreach ($section['callbacks'] ?? [] as $callback) {
+                    $xsections = $callback($xsections);
+                }
             }
 
-            return '(' . implode('|', $groups) . ')';
+
+            $xgroups[] = $xsections;
         }
 
-        if (empty($xpath)) {
-            $def = ($boolean ? '(' : '[') . implode(' and ', $parts) . ($boolean ? ')' : ']');
-
-            foreach ($callback ?? [] as $cb) {
-                $def = $cb($def);
-            }
-
-            return ($boolean ? '' : '//*') . $def;
+        if (empty($xgroups)) {
+            throw new Exception('dzdzdez');
         }
 
-        $xpath = '//*' . $xpath;
-
-        if (empty($parts)) {
-            foreach ($callback ?? [] as $cb) {
-                $xpath = $cb($xpath);
-            }
-            return $xpath;
+        if (count($xgroups) === 1) {
+            return $xgroups[0];
         }
 
-        $def = '[' . implode(' and ', $parts ?? []) . ']';
-
-        foreach ($callback ?? [] as $cb) {
-            $def = $cb($def);
-        }
-
-        return $xpath . $def;
+        return '(' . implode('|', $xgroups) . ')';
     }
 
     /**
@@ -473,6 +489,6 @@ class Parser
      */
     public static function parse(string $selector): string
     {
-        return self::render(self::tokenize($selector));
+        return self::render2(Parser::preRender(self::tokenize($selector)));
     }
 }

@@ -37,6 +37,16 @@ class QueryTest extends TestCase
         <span index="4" class="text bold">S2 Citizen</span>
         <span index="5" class="text bold">S2 Trust</span>
     </section>
+    <article>
+        <p>
+          Text 1 <a href="#href_1" class="btn link">link</a>
+          Text 2 <a href="#href_2" class="btn link"><span>link</span></a>
+        </p>
+        <div>
+          Text 3 <a href="#href_3" class="btn link"><span>link</span></a>
+          Text 4 <a href="#href_4" class="btn link">link</a>
+        </div>
+    </article>
 </body>
 </html>
 HTML
@@ -48,6 +58,18 @@ HTML
     public function testQuery()
     {
         $doc = $this->loadDoc();
+
+
+        $nodes = Query::query($doc, 'section');
+
+        $frag = $nodes->item(0)->ownerDocument->createDocumentFragment();
+
+        $frag->appendChild($nodes->item(0));
+        $frag->appendChild($nodes->item(1));
+
+        $t = $frag->childNodes->item(0) === $nodes->item(0);
+
+        $nodes = Query::query($frag, 'section');
 
         $nodes = Query::query($doc, 'section');
         $this->assertEquals(2, $nodes->length);
@@ -81,6 +103,13 @@ HTML
             $this->assertEquals(0, $node->attributes->getNamedItem('index')->nodeValue % 2);
         }
 
+        $nodes = Query::query($doc, 'section .text:first-child');
+        $this->assertEquals(2, $nodes->length);
+        $this->assertIsNode($nodes, 'span');
+        foreach ($nodes as $node) {
+            $this->assertEquals(0, $node->attributes->getNamedItem('index')->nodeValue);
+        }
+
         $nodes = Query::query($doc, '.text:not(.bold)');
         $this->assertEquals(6, $nodes->length);
         $this->assertIsNode($nodes, 'span');
@@ -95,6 +124,22 @@ HTML
             $this->assertTrue(intval($node->attributes->getNamedItem('index')->nodeValue) < 3);
             $this->assertStringStartsWith('S2', $node->textContent);
         }
+
+        $nodes = Query::query($doc, 'a:not(:has(span))');
+        $this->assertEquals(2, $nodes->length);
+        $this->assertIsNode($nodes, 'a');
+        $this->assertEquals('#href_1', $nodes->item(0)->attributes->getNamedItem('href')->nodeValue);
+        $this->assertEquals('#href_4', $nodes->item(1)->attributes->getNamedItem('href')->nodeValue);
+
+        $nodes = Query::query($doc, 'a:not(:has(span)):first');
+        $this->assertEquals(1, $nodes->length);
+        $this->assertIsNode($nodes, 'a');
+        $this->assertEquals('#href_1', $nodes->item(0)->attributes->getNamedItem('href')->nodeValue);
+        $nodes = Query::query($doc, 'a:not(:has(span)):last');
+        $this->assertEquals(1, $nodes->length);
+        $this->assertIsNode($nodes, 'a');
+        $this->assertEquals('#href_4', $nodes->item(0)->attributes->getNamedItem('href')->nodeValue);
+
     }
 
     private function assertIsNode(\DOMNodeList $nodes, $type)
@@ -110,4 +155,6 @@ HTML
             }
         }
     }
+
+
 }

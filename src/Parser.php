@@ -8,26 +8,32 @@ use XDOM\Exceptions\FormatException;
 /**
  * Class Parser
  *
+ * jQuery Selector converter to xpath
+ *
  * @package XDOM
  */
 class Parser
 {
 
     // http://www.w3.org/TR/css3-selectors/#whitespace
-    private const _x_whitespace = "[\\x20\\t\\r\\n\\f]";
+    /*private */
+    const _x_whitespace = "[\\x20\\t\\r\\n\\f]";
 
     // http://www.w3.org/TR/CSS21/syndata.html#value-def-identifier
-    private const _x_identifier = "(?:\\\\.|[\\w-]|[^\\0-\\xa0])+";
+    /*private */
+    const _x_identifier = "(?:\\\\.|[\\w-]|[^\\0-\\xa0])+";
 
     // Attribute selectors: http://www.w3.org/TR/selectors/#attribute-selectors
-    private const _x_attributes = "\\[" . self::_x_whitespace . "*(" . self::_x_identifier . ")(?:" . self::_x_whitespace .
+    /*private */
+    const _x_attributes = "\\[" . self::_x_whitespace . "*(" . self::_x_identifier . ")(?:" . self::_x_whitespace .
     // Operator (capture 2)
     "*([*^$|!~]?=)" . self::_x_whitespace .
     // "Attribute values must be CSS identifiers [capture 5] or strings [capture 3 or capture 4]"
     "*(?:'((?:\\\\.|[^\\\\'])*)'|\"((?:\\\\.|[^\\\\\"])*)\"|(" . self::_x_identifier . "))|)" . self::_x_whitespace .
     "*\\]";
 
-    private const _x_pseudos = ":(" . self::_x_identifier . ")(?:\\((" .
+    /*private */
+    const _x_pseudos = ":(" . self::_x_identifier . ")(?:\\((" .
     // To reduce the number of selectors needing tokenize in the preFilter, prefer arguments:
     // 1. quoted (capture 3; capture 4 or capture 5)
     "('((?:\\\\.|[^\\\\'])*)'|\"((?:\\\\.|[^\\\\\"])*)\")|" .
@@ -37,9 +43,11 @@ class Parser
     ".*" .
     ")\\)|)";
 
-    private const x_comma = "@^" . self::_x_whitespace . "*," . self::_x_whitespace . "*@";
+    /*private */
+    const x_comma = "@^" . self::_x_whitespace . "*," . self::_x_whitespace . "*@";
 
-    private const x_combinators = "@^" . self::_x_whitespace . "*([>+~]|" . self::_x_whitespace . ")" . self::_x_whitespace . "*@";
+    /*private */
+    const x_combinators = "@^" . self::_x_whitespace . "*([>+~]|" . self::_x_whitespace . ")" . self::_x_whitespace . "*@";
 
     const X_ID = "@^#(" . self::_x_identifier . ")@";
 
@@ -56,12 +64,12 @@ class Parser
     "*(\\d+)|))" . self::_x_whitespace . "*\\)|)@i";
 
     const MATCHERS = [
-      "TAG" => self::X_TAG,
-      "ID" => self::X_ID,
-      "CLASS" => self::X_CLASS,
-      "ATTR" => self::X_ATTR,
-      "CHILD" => self::X_CHILD,
-      "PSEUDOS" => self::X_PSEUDOS,
+        "TAG"     => self::X_TAG,
+        "ID"      => self::X_ID,
+        "CLASS"   => self::X_CLASS,
+        "ATTR"    => self::X_ATTR,
+        "CHILD"   => self::X_CHILD,
+        "PSEUDOS" => self::X_PSEUDOS,
     ];
 
     /**
@@ -82,10 +90,10 @@ class Parser
         $match[3] = $match[3] ?? $match[4] ?? $match[5] ?? '';
 
         return [
-          $match[0],
-          $match[1],
-          $match[2],
-          $match[3],
+            $match[0],
+            $match[1],
+            $match[2],
+            $match[3],
         ];
     }
 
@@ -103,15 +111,15 @@ class Parser
             }
 
             $match[4] = +(
-              $match[4] ?? null
-                ? intval($match[5]) + intval(empty($match[6]) ? 1 : $match[6])
-                : 2 * ($match[3] === 'even' || $match[3] === 'odd')
+                $match[4] ?? null
+                    ? intval($match[5]) + intval(empty($match[6]) ? 1 : $match[6])
+                    : 2 * ($match[3] === 'even' || $match[3] === 'odd')
             );
 
             $match[5] = +(
             empty(intval($match[7] ?? 0) + intval($match[8] ?? 0))
-              ? $match[3] === 'odd'
-              : intval($match[7] ?? 0) + intval($match[8] ?? 0)
+                ? $match[3] === 'odd'
+                : intval($match[7] ?? 0) + intval($match[8] ?? 0)
             );
 
         } elseif (empty($match[2])) {
@@ -159,7 +167,7 @@ class Parser
 
     /**
      * @param string $selector
-     * @param bool $parseOnly
+     * @param bool   $parseOnly
      *
      * @return array
      * @throws \XDOM\Exceptions\Exception
@@ -196,9 +204,9 @@ class Parser
 
             if (preg_match(self::x_combinators, $query, $match)) {
                 $token[] = [
-                  'type' => 'COMBINATOR',
-                  'matched' => $matched = array_shift($match),
-                  'value' => trim($match[0]),
+                    'type'    => 'COMBINATOR',
+                    'matched' => $matched = array_shift($match),
+                    'value'   => trim($match[0]),
                 ];
 
                 $query = substr($query, strlen($matched));
@@ -221,9 +229,9 @@ class Parser
                     $matched = array_shift($match);
 
                     $token[] = [
-                      'value' => $matched,
-                      'type' => $type,
-                      'matched' => $match,
+                        'value'   => $matched,
+                        'type'    => $type,
+                        'matched' => $match,
                     ];
 
                     $query = substr($query, strlen($matched));
@@ -251,8 +259,8 @@ class Parser
     {
         switch ($token['value']) {
             case '~':
-                return function ($xpath) {
-                    return '/following-sibling::*[count(./*' . $xpath . ')]';
+                return function ($xpath, $section) {
+                    return '/following-sibling::*[count(./' . (empty($section['tag']) ? '*' : '') . $xpath . ')]';
                 };
             case '+':
                 return '/following-sibling::*';
@@ -266,7 +274,7 @@ class Parser
 
     private static function renderTag(array $token)
     {
-        return 'self::' . $token['value'];
+        return $token['value'];
     }
 
     private static function renderId(array $token)
@@ -304,14 +312,14 @@ class Parser
                 return 'ends-with(@' . $matched[0] . ', "' . $matched[2] . '")';
         }
 
-        throw new Exception("WTF:" . $matched[1]);
+        throw new Exception('Operator "' . $matched[1] . '" isn\'t supported.');
     }
 
     private static function renderChild(array $token)
     {
         $matched = $token['matched'];
 
-        switch (implode('-', array_filter([$matched[0], $matched[1]]))) {
+        switch ($filter = implode('-', array_filter([$matched[0], $matched[1]]))) {
             case 'only-child':
                 return '(count(*)=1)';
             case 'last-child':
@@ -337,7 +345,7 @@ class Parser
             //default:
         }
 
-        throw new Exception("");
+        throw new Exception('Filter "' . $filter . '" isn\'t supported.');
     }
 
     private static function renderPseudos(array $token)
@@ -346,8 +354,7 @@ class Parser
 
         switch ($matched[0]) {
             case 'not':
-
-                return 'not(' . self::render2(self::preRender(self::tokenize($matched[1]))) . ')';
+                return 'not(' . self::render(self::preRender(self::tokenize($matched[1])), true) . ')';
             case 'has':
                 return '.' . self::parse($matched[1]);
             case 'contains':
@@ -361,39 +368,43 @@ class Parser
                     return '(' . $xpath . ')[last()]';
                 };
         }
+
+        throw new Exception('Pseudos "' . $matched[0] . '" isn\'t supported.');
     }
 
-    public static function preRender(array $tokens)
+    public static function preRender(array $tokens, string $pre = null)
     {
         $parts = null;
         $callback = null;
         $combinator = null;
         $sections = [];
 
-        foreach ($tokens as $token) {
+        foreach ($tokens as $idx => $token) {
             if (!isset($token['type'])) {
-                $groups[] = self::preRender($token);
+                $groups[] = self::preRender($token, $pre);
                 continue;
-            }
-
-            if (isset($groups)) {
-                var_dump($groups);
-                throw new Exception("...");
             }
 
             switch ($token['type']) {
                 case 'COMBINATOR':
-                    $sections[] = [
-                      'combinator' => $combinator ?? null,
-                      'conditions' => $parts ?? [],
-                      'callbacks' => $callback ?? null,
-                    ];
-                    $parts = null;
-                    $callback = null;
+                    if($idx > 0){
+                        $sections[] = [
+                            'pre' => $pre,
+                            'combinator' => $combinator ?? null,
+                            'tag'        => $tag ?? null,
+                            'conditions' => $parts ?? [],
+                            'callbacks'  => $callback ?? null,
+                        ];
+
+                        $pre = null;
+                        $tag = null;
+                        $parts = null;
+                        $callback = null;
+                    }
                     $combinator = self::renderCombinator($token);
                     break;
                 case 'TAG':
-                    $parts[] = self::renderTag($token);
+                    $tag = self::renderTag($token);
                     break;
                 case 'ID':
                     $parts[] = self::renderId($token);
@@ -415,8 +426,6 @@ class Parser
                         $callback[] = $pseudo;
                     }
                     break;
-                default:
-                    throw new Exception('WTF:' . $token['type']);
             }
         }
 
@@ -425,40 +434,58 @@ class Parser
         }
 
         $sections[] = [
-          'combinator' => $combinator ?? null,
-          'conditions' => $parts ?? [],
-          'callbacks' => $callback ?? null,
+            'pre' => $pre,
+            'combinator' => $combinator ?? null,
+            'tag'        => $tag ?? null,
+            'conditions' => $parts ?? [],
+            'callbacks'  => $callback ?? null,
         ];
 
         return $sections;
     }
 
-    public static function render2(array $groups, $boolean = false)
+    public static function render(array $groups, $boolean = false)
     {
         foreach ($groups as $sections) {
             $xsections = '';
 
             foreach ($sections as $section) {
-                if(is_null($section)){
+                if (is_null($section)) {
                     continue;
                 }
                 if (empty($section['conditions'])) {
-                    $xsection = '';
+                    if (empty($section['tag'])) {
+                        $xsection = '';
+                    } else {
+                        $xsection = $section['tag'];
+                    }
                 } else {
-                    $xsection = ($boolean ? '' : '[') . implode(' and ', $section['conditions']) . ($boolean ? '' : ']');
+                    if (!empty($section['tag'])) {
+                        array_unshift($section['conditions'], 'self::' . $section['tag']);
+                        $section['tag'] = null;
+                    }
+
+                    $xsection =
+                        ($boolean ? '' : '[') .
+                        implode(' and ', $section['conditions']) .
+                        ($boolean ? '' : ']');
                 }
 
-                if(!$boolean){
+                if (!$boolean || (!empty($section['tag']) && !empty($section['conditions']))) {
                     if (empty($section['combinator'])) {
-                        $xsection = '//*' . $xsection;
+                        $xsection = '//' . (empty($section['tag']) ? '*' : '') . $xsection;
                     } elseif (is_string($section['combinator'])) {
-                        $xsection = $section['combinator'] . $xsection;
+                        $xsection =
+                            (empty($section['tag'])
+                                ? $section['combinator']
+                                : trim($section['combinator'], '*'))
+                            . $xsection;
                     } else {
-                        $xsection = $section['combinator']($xsection);
+                        $xsection = $section['combinator']($xsection, $section);
                     }
                 }
 
-                $xsections .= $xsection;
+                $xsections .= $section['pre'] . $xsection;
 
                 foreach ($section['callbacks'] ?? [] as $callback) {
                     $xsections = $callback($xsections);
@@ -481,14 +508,20 @@ class Parser
     }
 
     /**
-     * @param string $selector
+     * @param string      $selector
+     * @param string|null $pre
      *
      * @return string
      * @throws \XDOM\Exceptions\Exception
      * @throws \XDOM\Exceptions\FormatException
      */
-    public static function parse(string $selector): string
+    public static function parse(string $selector, string $pre = null): string
     {
-        return self::render2(Parser::preRender(self::tokenize($selector)));
+        static $cache;
+        if (isset($cache[$pre.$selector])) {
+            return $cache[$pre.$selector];
+        }
+
+        return $cache[$pre.$selector] = self::render(self::preRender(self::tokenize($selector), $pre));
     }
 }

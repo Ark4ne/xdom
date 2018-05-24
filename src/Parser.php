@@ -56,12 +56,12 @@ class Parser
     "*(\\d+)|))" . self::_x_whitespace . "*\\)|)@i";
 
     const MATCHERS = [
-        "TAG"     => self::X_TAG,
-        "ID"      => self::X_ID,
-        "CLASS"   => self::X_CLASS,
-        "ATTR"    => self::X_ATTR,
-        "CHILD"   => self::X_CHILD,
-        "PSEUDOS" => self::X_PSEUDOS,
+      "TAG" => self::X_TAG,
+      "ID" => self::X_ID,
+      "CLASS" => self::X_CLASS,
+      "ATTR" => self::X_ATTR,
+      "CHILD" => self::X_CHILD,
+      "PSEUDOS" => self::X_PSEUDOS,
     ];
 
     /**
@@ -82,10 +82,10 @@ class Parser
         $match[3] = $match[3] ?? $match[4] ?? $match[5] ?? '';
 
         return [
-            $match[0],
-            $match[1],
-            $match[2],
-            $match[3],
+          $match[0],
+          $match[1],
+          $match[2],
+          $match[3],
         ];
     }
 
@@ -103,15 +103,15 @@ class Parser
             }
 
             $match[4] = +(
-                $match[4] ?? null
-                    ? intval($match[5]) + intval(empty($match[6]) ? 1 : $match[6])
-                    : 2 * ($match[3] === 'even' || $match[3] === 'odd')
+              $match[4] ?? null
+                ? intval($match[5]) + intval(empty($match[6]) ? 1 : $match[6])
+                : 2 * ($match[3] === 'even' || $match[3] === 'odd')
             );
 
             $match[5] = +(
             empty(intval($match[7] ?? 0) + intval($match[8] ?? 0))
-                ? $match[3] === 'odd'
-                : intval($match[7] ?? 0) + intval($match[8] ?? 0)
+              ? $match[3] === 'odd'
+              : intval($match[7] ?? 0) + intval($match[8] ?? 0)
             );
 
         } elseif (empty($match[2])) {
@@ -159,7 +159,7 @@ class Parser
 
     /**
      * @param string $selector
-     * @param bool   $parseOnly
+     * @param bool $parseOnly
      *
      * @return array
      * @throws \XDOM\Exceptions\Exception
@@ -196,9 +196,9 @@ class Parser
 
             if (preg_match(self::x_combinators, $query, $match)) {
                 $token[] = [
-                    'type'    => 'COMBINATOR',
-                    'matched' => $matched = array_shift($match),
-                    'value'   => trim($match[0]),
+                  'type' => 'COMBINATOR',
+                  'matched' => $matched = array_shift($match),
+                  'value' => trim($match[0]),
                 ];
 
                 $query = substr($query, strlen($matched));
@@ -221,9 +221,9 @@ class Parser
                     $matched = array_shift($match);
 
                     $token[] = [
-                        'value'   => $matched,
-                        'type'    => $type,
-                        'matched' => $match,
+                      'value' => $matched,
+                      'type' => $type,
+                      'matched' => $match,
                     ];
 
                     $query = substr($query, strlen($matched));
@@ -251,7 +251,9 @@ class Parser
     {
         switch ($token['value']) {
             case '~':
-                return null;
+                return function ($xpath) {
+                    return '/following-sibling::*[count(./*' . $xpath . ')]';
+                };
             case '+':
                 return '/following-sibling::*';
             case '>':
@@ -349,6 +351,14 @@ class Parser
                 return '.' . self::render(self::tokenize($matched[1]));
             case 'contains':
                 return 'contains(text(), "' . $matched[1] . '")';
+            case 'first':
+                return function ($xpath) {
+                    return $xpath . '[1]';
+                };
+            case 'last':
+                return function ($xpath) {
+                    return $xpath . '[last()]';
+                };
         }
     }
 
@@ -370,8 +380,25 @@ class Parser
                     if (!isset($parts)) {
                         throw new Exception("...");
                     }
-                    $xpath = ($xpath ?? '') . '[' . implode(' and ', $parts) . ']' . self::renderCombinator($token);
+
+                    $def = '[' . implode(' and ', $parts) . ']';
+
+                    foreach ($callback ?? [] as $cb) {
+                        $def = $cb($def);
+                    }
+
+                    $callback = [];
                     $parts = [];
+
+                    $xpath = ($xpath ?? '') . $def;
+                    $combinator = self::renderCombinator($token);
+
+                    if (is_string($combinator)) {
+                        $xpath .= $combinator;
+                    } else {
+                        $callback[] = $combinator;
+                    }
+
                     break;
                 case 'TAG':
                     $parts[] = self::renderTag($token);
@@ -389,7 +416,12 @@ class Parser
                     $parts[] = self::renderChild($token);
                     break;
                 case 'PSEUDOS':
-                    $parts[] = self::renderPseudos($token);
+                    $pseudo = self::renderPseudos($token);
+                    if (is_string($pseudo)) {
+                        $parts[] = $pseudo;
+                    } else {
+                        $callback[] = $pseudo;
+                    }
                     break;
                 default:
                     throw new Exception('WTF:' . $token['type']);
@@ -405,16 +437,31 @@ class Parser
         }
 
         if (empty($xpath)) {
-            return ($boolean ? '(' : '//*[') . implode(' and ', $parts) . ($boolean ? ')' : ']');
+            $def = ($boolean ? '(' : '[') . implode(' and ', $parts) . ($boolean ? ')' : ']');
+
+            foreach ($callback ?? [] as $cb) {
+                $def = $cb($def);
+            }
+
+            return ($boolean ? '' : '//*') . $def;
         }
 
         $xpath = '//*' . $xpath;
 
         if (empty($parts)) {
+            foreach ($callback ?? [] as $cb) {
+                $xpath = $cb($xpath);
+            }
             return $xpath;
         }
 
-        return $xpath . '[' . implode(' and ', $parts ?? []) . ']';
+        $def = '[' . implode(' and ', $parts ?? []) . ']';
+
+        foreach ($callback ?? [] as $cb) {
+            $def = $cb($def);
+        }
+
+        return $xpath . $def;
     }
 
     /**

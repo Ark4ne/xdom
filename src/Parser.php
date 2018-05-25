@@ -359,6 +359,38 @@ class Parser
                 return '.' . self::parse($matched[1]);
             case 'contains':
                 return 'contains(text(), "' . $matched[1] . '")';
+            case 'header':
+                return '(self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6)';
+            case 'input':
+                return '(self::input or self::select or self::textarea or self::button)';
+            case 'button':
+                return '(self::button or @type="button")';
+            case 'checkbox':
+                return '@type="checkbox"';
+            case 'file':
+                return '@type="file"';
+            case 'radio':
+                return '@type="radio"';
+            case 'password':
+                return '@type="password"';
+            case 'text':
+                return '@type="text"';
+            case 'submit':
+                return '(@type="submit" or (self::button and not(@type)))';
+            case 'reset':
+                return '@type="reset"';
+            case 'checked':
+                return '(@checked or @selected)';
+            case 'unchecked':
+                return 'not(@checked or @selected)';
+            case 'selected':
+                return '@selected';
+            case 'unselected':
+                return 'not(@selected)';
+            case 'disabled':
+                return '@disabled';
+            case 'enabled':
+                return 'not(@disabled)';
             case 'first':
                 return function ($xpath) {
                     return '(' . $xpath . ')[1]';
@@ -367,12 +399,33 @@ class Parser
                 return function ($xpath) {
                     return '(' . $xpath . ')[last()]';
                 };
+            case 'even':
+                return function ($xpath) {
+                    return '(' . $xpath . ')[(position() mod 2 = 0)]';
+                };
+            case 'odd':
+                return function ($xpath) {
+                    return '(' . $xpath . ')[(position() mod 2 = 1)]';
+                };
+            case 'gt':
+            case 'lt':
+            case 'gte':
+            case 'lte':
+                $way = (strpos($matched[0], 'gt') === 0 ? '>' : '<') . (strpos($matched[0], 'e') === 2 ? '=' : '');
+                $pos = intval($matched[1]);
+                return function ($xpath) use ($pos, $way) {
+                    if ($pos > 0) {
+                        return '(' . $xpath . ')[(position() ' . $way . ' ' . $pos . ')]';
+                    } else {
+                        return '(' . $xpath . ')[((count() - position()) ' . $way . ' ' . (-1 * $pos) . ']';
+                    }
+                };
         }
 
         throw new Exception('Pseudos "' . $matched[0] . '" isn\'t supported.');
     }
 
-    public static function preRender(array $tokens, string $pre = null)
+    private static function preRender(array $tokens, string $pre = null)
     {
         $parts = null;
         $callback = null;
@@ -444,7 +497,7 @@ class Parser
         return $sections;
     }
 
-    public static function render(array $groups, $boolean = false)
+    private static function render(array $groups, $boolean = false)
     {
         foreach ($groups as $sections) {
             $xsections = '';

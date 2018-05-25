@@ -47,6 +47,36 @@ class QueryTest extends TestCase
           Text 4 <a href="#href_4" class="link">link</a>
         </div>
     </article>
+    <nav>
+        <h1>h1</h1>
+        <h2>h2</h2>
+        <h3>h3</h3>
+        <h4>h4</h4>
+        <h5>h5</h5>
+        <h6>h6</h6>
+    </nav>
+    <form>
+        <input/>
+        <input type="button"/>
+        <input type="checkbox"/>
+        <input type="checkbox" checked/>
+        <input type="file"/>
+        <input type="password"/>
+        <input type="radio"/>
+        <input type="radio" checked/>
+        <input type="submit"/>
+        <input type="text"/>
+        <input type="reset"/>
+        <select>
+            <option>opt_1</option>
+            <option>opt_2</option>
+            <option selected>opt_3</option>
+            <option selected>opt_4</option>
+        </select>
+        <textarea></textarea>
+        <button id="btn_1"></button>
+        <button type="submit" id="btn_1"></button>
+    </form>
 </body>
 </html>
 HTML
@@ -196,6 +226,57 @@ HTML
         $this->assertIsNode($a, 'a');
         $this->assertAttrValue("#href_3", $a->item(0), 'href');
         $this->assertAttrValue("#href_4", $a->item(1), 'href');
+
+        $btn = XDOM::find($doc, ':header');
+        $this->assertEquals(6, $btn->length);
+        $this->assertIsNode($btn, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
+
+        $btn = XDOM::find($doc, 'nav:first :header');
+        $this->assertEquals(6, $btn->length);
+        $this->assertIsNode($btn, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
+
+        $btn = XDOM::find($doc, 'nav:first :header:odd');
+        $this->assertEquals(3, $btn->length);
+        $this->assertIsNode($btn, ['h1', 'h3', 'h5']);
+
+        $btn = XDOM::find($doc, 'form :input');
+        $this->assertEquals(15, $btn->length);
+        $this->assertIsNode($btn, [
+          'input',
+          'input',
+          'input',
+          'input',
+          'input',
+          'input',
+          'input',
+          'input',
+          'input',
+          'input',
+          'input',
+          'select',
+          'textarea',
+          'button',
+          'button'
+        ]);
+
+        $btn = XDOM::find($doc, 'form :button');
+        $this->assertEquals(3, $btn->length);
+        $this->assertIsNode($btn, ['input', 'button', 'button']);
+        $this->assertAttrValue('button', $btn->item(0), 'type');
+
+        $btn = XDOM::find($doc, 'form :input:button');
+        $this->assertEquals(3, $btn->length);
+        $this->assertIsNode($btn, ['input', 'button', 'button']);
+        $this->assertAttrValue('button', $btn->item(0), 'type');
+
+        $btn = XDOM::find($doc, 'form :submit');
+        $this->assertEquals(3, $btn->length);
+        $this->assertIsNode($btn, ['input', 'button', 'button']);
+
+        $inputs = XDOM::find($doc, 'form :password');
+        $this->assertEquals(1, $inputs->length);
+        $this->assertIsNode($inputs, 'input');
+        $this->assertAttrValue('password', $inputs, 'type');
     }
 
     private function assertIsNode(\DOMNodeList $nodes, $type)

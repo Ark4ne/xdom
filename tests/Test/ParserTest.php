@@ -130,15 +130,27 @@ class ParserTest extends TestCase
             ],
             [
                 'main ~ span:first-child',
-                '//main/following-sibling::*[count(./*[self::span and (position() = 1)])]',
+                '//main/following-sibling::*[self::span and (position() = 1)]',
             ],
             [
                 'main ~ span:first',
-                '(//main/following-sibling::*[count(./span)])[1]',
+                '(//main/following-sibling::span)[1]',
             ],
             [
                 'main ~ *:first',
-                '(//main/following-sibling::*[count(./*)])[1]',
+                '(//main/following-sibling::*)[1]',
+            ],
+            [
+                'main + span:first-child',
+                '//main/following-sibling::*[self::span and (position() = 1)][position() = 1]',
+            ],
+            [
+                'main + span:first',
+                '(//main/following-sibling::span[position() = 1])[1]',
+            ],
+            [
+                'main + *:first',
+                '(//main/following-sibling::*[position() = 1])[1]',
             ],
             [
                 'a:not(:has(span)):first',

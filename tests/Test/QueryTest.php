@@ -77,12 +77,83 @@ class QueryTest extends TestCase
         <button id="btn_1"></button>
         <button type="submit" id="btn_1"></button>
     </form>
+    
+    <div class="col-lg-1">
+        <div></div>
+        <i class="i-1-1"></i>
+        <i class="i-1-2"></i>
+    </div>
+    <div class="col-lg-2">
+        <div></div>
+        <i class="i-2-1"></i>
+        <i class="i-2-2"></i>
+    </div>
+    <div class="col-lg-3">
+        <div></div>
+        <i class="i-3-1"></i>
+        <i class="i-3-2"></i>
+        <p></p>
+        <i class="i-3-4"></i>
+        <i class="i-3-5"></i>
+    </div>
 </body>
 </html>
 HTML
         );
 
         return $doc;
+    }
+
+    /**
+     * @throws \PHPUnit_Framework_AssertionFailedError
+     * @throws \PHPUnit_Framework_Exception
+     * @throws \XDOM\Exceptions\Exception
+     */
+    public function testFindTag()
+    {
+        $doc = $this->loadDoc();
+
+        $nodes = XDOM::find($doc, 'section');
+        $this->assertEquals(2, $nodes->length);
+        $this->assertIsNode($nodes, 'section');
+
+        $nodes = XDOM::find($doc, 'span');
+        $this->assertEquals(14, $nodes->length);
+        $this->assertIsNode($nodes, 'span');
+
+        $nodes = XDOM::find($doc, 'section > span');
+        $this->assertEquals(12, $nodes->length);
+
+        $nodes = XDOM::find($doc, 'textarea ~ button');
+        $this->assertEquals(2, $nodes->length);
+        $this->assertIsNode($nodes, 'button');
+
+        $nodes = XDOM::find($doc, 'input + select');
+        $this->assertEquals(1, $nodes->length);
+        $this->assertIsNode($nodes, 'select');
+
+        $nodes = XDOM::find($doc, 'div + i');
+        $this->assertEquals(3, $nodes->length);
+        $this->assertIsNode($nodes, 'i');
+        $this->assertAttrValue("i-1-1", $nodes->item(0), 'class');
+        $this->assertAttrValue("i-2-1", $nodes->item(1), 'class');
+        $this->assertAttrValue("i-3-1", $nodes->item(2), 'class');
+
+        $nodes = XDOM::find($doc, 'div ~ i');
+        $this->assertEquals(6, $nodes->length);
+        $this->assertIsNode($nodes, 'i');
+
+        $nodes = XDOM::find($doc, 'nav');
+        $this->assertEquals(1, $nodes->length);
+        $this->assertIsNode($nodes, 'nav');
+
+        $nodes = XDOM::find($doc, 'body > nav');
+        $this->assertEquals(1, $nodes->length);
+        $this->assertIsNode($nodes, 'nav');
+
+        $nodes = XDOM::find($doc, 'article');
+        $this->assertEquals(1, $nodes->length);
+        $this->assertIsNode($nodes, 'article');
     }
 
     /**
@@ -273,10 +344,58 @@ HTML
         $this->assertEquals(3, $btn->length);
         $this->assertIsNode($btn, ['input', 'button', 'button']);
 
-        $inputs = XDOM::find($doc, 'form :password');
+        foreach (['password', 'file'] as $type) {
+            $inputs = XDOM::find($doc, 'form :' . $type);
+            $this->assertEquals(1, $inputs->length);
+            $this->assertIsNode($inputs, 'input');
+            $this->assertAttrValue($type, $inputs, 'type');
+        }
+
+        $inputs = XDOM::find($doc, 'form :checkbox');
+        $this->assertEquals(2, $inputs->length);
+        $this->assertIsNode($inputs, 'input');
+        $this->assertAttrValue('checkbox', $inputs->item(0), 'type');
+        $this->assertAttrValue('checkbox', $inputs->item(1), 'type');
+
+        $inputs = XDOM::find($doc, 'form :checkbox:checked');
         $this->assertEquals(1, $inputs->length);
         $this->assertIsNode($inputs, 'input');
-        $this->assertAttrValue('password', $inputs, 'type');
+        $this->assertAttrValue('checkbox', $inputs->item(0), 'type');
+        $this->assertAttrValue('checked', $inputs->item(0), 'checked');
+
+        $inputs = XDOM::find($doc, 'form :checkbox:unchecked');
+        $this->assertEquals(1, $inputs->length);
+        $this->assertIsNode($inputs, 'input');
+        $this->assertAttrValue('checkbox', $inputs->item(0), 'type');
+        $this->assertAttrValue(null, $inputs->item(0), 'checked');
+
+        $inputs = XDOM::find($doc, 'form :radio:checked');
+        $this->assertEquals(1, $inputs->length);
+        $this->assertIsNode($inputs, 'input');
+        $this->assertAttrValue('radio', $inputs->item(0), 'type');
+        $this->assertAttrValue('checked', $inputs->item(0), 'checked');
+
+        $inputs = XDOM::find($doc, 'form :radio:unchecked');
+        $this->assertEquals(1, $inputs->length);
+        $this->assertIsNode($inputs, 'input');
+        $this->assertAttrValue('radio', $inputs->item(0), 'type');
+        $this->assertAttrValue(null, $inputs->item(0), 'checked');
+
+        $inputs = XDOM::find($doc, 'form :checked');
+        $this->assertEquals(4, $inputs->length);
+        $this->assertIsNode($inputs, ['input', 'input', 'option', 'option']);
+
+        $inputs = XDOM::find($doc, 'form :selected');
+        $this->assertEquals(2, $inputs->length);
+        $this->assertIsNode($inputs, ['option', 'option']);
+        $this->assertAttrValue('selected', $inputs->item(0), 'selected');
+        $this->assertAttrValue('selected', $inputs->item(1), 'selected');
+
+        $inputs = XDOM::find($doc, 'form option:unselected');
+        $this->assertEquals(2, $inputs->length);
+        $this->assertIsNode($inputs, ['option', 'option']);
+        $this->assertAttrValue(null, $inputs->item(0), 'selected');
+        $this->assertAttrValue(null, $inputs->item(1), 'selected');
     }
 
     private function assertIsNode(\DOMNodeList $nodes, $type)

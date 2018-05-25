@@ -258,11 +258,11 @@ class Parser
     private static function renderCombinator(array $token)
     {
         switch ($token['value']) {
-            case '~':
-                return function ($xpath, $section) {
-                    return '/following-sibling::*[count(./' . (empty($section['tag']) ? '*' : '') . $xpath . ')]';
-                };
             case '+':
+                return function ($xpath, $section) {
+                    return '/following-sibling::' . (!empty($section['conditions']) ? '*' : '') . $xpath . '[position() = 1]';
+                };
+            case '~':
                 return '/following-sibling::*';
             case '>':
                 return '/*';
@@ -373,8 +373,6 @@ class Parser
                 return '@type="radio"';
             case 'password':
                 return '@type="password"';
-            case 'text':
-                return '@type="text"';
             case 'submit':
                 return '(@type="submit" or (self::button and not(@type)))';
             case 'reset':

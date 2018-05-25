@@ -40,7 +40,7 @@ class XDOM
     {
         $nattr = $node->attributes->getNamedItem($attr);
 
-        if (is_null($attr)) {
+        if (is_null($nattr)) {
             return $default;
         }
 

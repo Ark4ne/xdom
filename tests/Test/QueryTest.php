@@ -96,6 +96,15 @@ class QueryTest extends TestCase
         <i class="i-3-4"></i>
         <i class="i-3-5"></i>
     </div>
+    
+    <attr attr="attr"></attr>
+    <attr attr="attr-section-1"></attr>
+    <attr attr="attr-section-2"></attr>
+    <attr attr="attr-section-3"></attr>
+    <attr attr="attr2"></attr>
+    <attr attr="attr2-section-1"></attr>
+    <attr attr="attr2-section-2"></attr>
+    <attr attr="attr2-section-3"></attr>
 </body>
 </html>
 HTML
@@ -140,7 +149,7 @@ HTML
         $this->assertAttrValue("i-3-1", $nodes->item(2), 'class');
 
         $nodes = XDOM::find($doc, 'div ~ i');
-        $this->assertEquals(6, $nodes->length);
+        $this->assertEquals(8, $nodes->length);
         $this->assertIsNode($nodes, 'i');
 
         $nodes = XDOM::find($doc, 'nav');
@@ -313,21 +322,21 @@ HTML
         $btn = XDOM::find($doc, 'form :input');
         $this->assertEquals(15, $btn->length);
         $this->assertIsNode($btn, [
-          'input',
-          'input',
-          'input',
-          'input',
-          'input',
-          'input',
-          'input',
-          'input',
-          'input',
-          'input',
-          'input',
-          'select',
-          'textarea',
-          'button',
-          'button'
+            'input',
+            'input',
+            'input',
+            'input',
+            'input',
+            'input',
+            'input',
+            'input',
+            'input',
+            'input',
+            'input',
+            'select',
+            'textarea',
+            'button',
+            'button'
         ]);
 
         $btn = XDOM::find($doc, 'form :button');
@@ -396,6 +405,49 @@ HTML
         $this->assertIsNode($inputs, ['option', 'option']);
         $this->assertAttrValue(null, $inputs->item(0), 'selected');
         $this->assertAttrValue(null, $inputs->item(1), 'selected');
+
+        $attrs = XDOM::find($doc, '[attr]');
+        $this->assertEquals(8, $attrs->length);
+        $this->assertIsNode($attrs, 'attr');
+
+        $attrs = XDOM::find($doc, '[attr=attr]');
+        $this->assertEquals(1, $attrs->length);
+        $this->assertIsNode($attrs, 'attr');
+
+        $attrs = XDOM::find($doc, '[attr^=attr]');
+        $this->assertEquals(8, $attrs->length);
+        $this->assertIsNode($attrs, 'attr');
+
+        $attrs = XDOM::find($doc, '[attr|=attr]');
+        $this->assertEquals(4, $attrs->length);
+        $this->assertIsNode($attrs, 'attr');
+
+        $attrs = XDOM::find($doc, '[attr^=attr-section]');
+        $this->assertEquals(3, $attrs->length);
+        $this->assertIsNode($attrs, 'attr');
+
+        $attrs = XDOM::find($doc, '[attr|=attr-section]');
+        $this->assertEquals(3, $attrs->length);
+        $this->assertIsNode($attrs, 'attr');
+
+        $attrs = XDOM::find($doc, '[attr$=section-1]');
+        $this->assertEquals(2, $attrs->length);
+        $this->assertIsNode($attrs, 'attr');
+    }
+
+    public function testQueryNodeList()
+    {
+        $doc = $this->loadDoc();
+
+        $nodes = XDOM::find($doc, 'section');
+
+        $spans = XDOM::find($nodes, 'span');
+        $this->assertEquals(12, $spans->length);
+        $this->assertIsNode($spans, 'span');
+
+        $spans = XDOM::find($nodes, 'span:first');
+        $this->assertEquals(2, $spans->length);
+        $this->assertIsNode($spans, 'span');
     }
 
     private function assertIsNode(\DOMNodeList $nodes, $type)

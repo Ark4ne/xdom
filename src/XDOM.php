@@ -11,17 +11,43 @@ use XDOM\Exceptions\Exception;
  */
 class XDOM
 {
-    public static function find(\DOMNode $node, string $query): \DOMNodeList
+    /**
+     * @param \DOMNode|\DOMNodeList $node
+     * @param string                $query
+     *
+     * @return \DOMNodeList
+     * @throws \XDOM\Exceptions\Exception
+     * @throws \XDOM\Exceptions\FormatException
+     */
+    public static function find($node, string $query): \DOMNodeList
     {
         if ($node instanceof \DOMDocument) {
             $xpath = new \DOMXPath($node);
-            $xquery = null;
-        } else {
+            $xquery = Parser::parse($query);
+        } elseif ($node instanceof \DOMNode) {
             $xpath = new \DOMXPath($node->ownerDocument);
-            $xquery = $node->getNodePath();
+            $xquery = Parser::parse($query, $node->getNodePath());
+        } elseif ($node instanceof \DOMNodeList) {
+            switch ($node->length){
+                case 0:
+                    return new \DOMNodeList();
+                case 1:
+                    $node = $node->item(0);
+                    $xpath = new \DOMXPath($node->ownerDocument);
+                    $xquery = Parser::parse($query, $node->getNodePath());
+                    break;
+                default:
+                    $xpath = new \DOMXPath($node->item(0)->ownerDocument);
+                    foreach ($node as $item) {
+                        $xqueries[] = Parser::parse($query, $item->getNodePath());
+                    }
+
+                    $xquery = '(' . implode(' | ', $xqueries) . ')';
+            }
+        } else {
+            throw new Exception('Wrong argument type.');
         }
 
-        $xquery = Parser::parse($query, $xquery);
 
         if (empty($xquery)) {
             return new \DOMNodeList();

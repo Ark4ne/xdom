@@ -142,7 +142,7 @@ class ParserTest extends TestCase
             ],
             [
                 'main + span:first-child',
-                '//main/following-sibling::*[self::span and (position() = 1)][position() = 1]',
+                '//main/following-sibling::*[self::span and (position() = 1) and position() = 1]',
             ],
             [
                 'main + span:first',

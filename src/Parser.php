@@ -260,14 +260,24 @@ class Parser
         switch ($token['value']) {
             case '+':
                 return function ($xpath, $section) {
-                    return '/following-sibling::' . (!empty($section['conditions']) ? '*' : '') . $xpath . '[position() = 1]';
+                    if (empty($section['conditions'])) {
+                        $xpath .= '[position() = 1]';
+                    } else {
+                        $xpath = '*' . substr($xpath, 0, -1) . ' and position() = 1]';
+                    }
+
+                    return '/following-sibling::' . $xpath;
                 };
             case '~':
                 return '/following-sibling::*';
             case '>':
                 return '/*';
             case ' ':
+                return '//*';
             default:
+                if(is_null($token['value'])){
+                    return 'descendant-or-self::*';
+                }
                 return '//*';
         }
     }
@@ -305,11 +315,11 @@ class Parser
             case '~=':
                 return 'contains(concat(" ", @' . $matched[0] . ', " "), " ' . $matched[2] . ' ")';
             case '|=':
-                return 'starts-with(@' . $matched[0] . ', "' . $matched[2] . '-")';
+                return '(@' . $matched[0] . '="' . $matched[2] . '" or "'.$matched[2].'-" = substring(@'.$matched[0].', 0, '.(strlen($matched[2])+2).'))';
             case '^=':
-                return 'starts-with(@' . $matched[0] . ', "' . $matched[2] . '")';
+                return '"' . $matched[2] . '" = substring(@' . $matched[0] . ', 0, ' . (strlen($matched[2])+1) . ')';
             case '$=':
-                return 'ends-with(@' . $matched[0] . ', "' . $matched[2] . '")';
+                return '"' . $matched[2] . '" = substring(@' . $matched[0] . ', string-length(@' . $matched[0] . ') - ' . (strlen($matched[2]) - 1) .')';
         }
 
         throw new Exception('Operator "' . $matched[1] . '" isn\'t supported.');
@@ -321,28 +331,28 @@ class Parser
 
         switch ($filter = implode('-', array_filter([$matched[0], $matched[1]]))) {
             case 'only-child':
+            case 'only-of-type':
                 return '(count(*)=1)';
             case 'last-child':
+            case 'last-of-type':
                 return '(last())';
             case 'first-child':
+            case 'first-of-type':
                 return '(position() = 1)';
             case 'nth-child':
+            case 'nth-of-type':
                 if (empty($matched[3])) {
                     return '(position() mod ' . $matched[4] . ' = 1)';
                 }
 
                 return '(position() mod ' . $matched[3] . ' = ' . $matched[4] . ')';
             case 'nth-last-child':
+            case 'nth-last-of-type':
                 if (empty($matched[3])) {
                     return '((count() - position()) mod ' . $matched[4] . ' = 1)';
                 }
 
                 return '((count() - position()) mod ' . $matched[3] . ' = ' . $matched[4] . ')';
-            //case 'only-of-type':
-            //case 'nth-of-type':
-            //case 'first-of-type':
-            //case 'nth-last-of-type':
-            //default:
         }
 
         throw new Exception('Filter "' . $filter . '" isn\'t supported.');

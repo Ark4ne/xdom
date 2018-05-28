@@ -3,6 +3,7 @@
 namespace Test;
 
 use PHPUnit\Framework\TestCase;
+use XDOM\Wrap;
 use XDOM\XDOM;
 
 /**
@@ -122,45 +123,45 @@ HTML
     {
         $doc = $this->loadDoc();
 
-        $nodes = XDOM::find($doc, 'section');
+        $nodes = XDOM::query($doc, 'section');
         $this->assertEquals(2, $nodes->length);
         $this->assertIsNode($nodes, 'section');
 
-        $nodes = XDOM::find($doc, 'span');
+        $nodes = XDOM::query($doc, 'span');
         $this->assertEquals(14, $nodes->length);
         $this->assertIsNode($nodes, 'span');
 
-        $nodes = XDOM::find($doc, 'section > span');
+        $nodes = XDOM::query($doc, 'section > span');
         $this->assertEquals(12, $nodes->length);
 
-        $nodes = XDOM::find($doc, 'textarea ~ button');
+        $nodes = XDOM::query($doc, 'textarea ~ button');
         $this->assertEquals(2, $nodes->length);
         $this->assertIsNode($nodes, 'button');
 
-        $nodes = XDOM::find($doc, 'input + select');
+        $nodes = XDOM::query($doc, 'input + select');
         $this->assertEquals(1, $nodes->length);
         $this->assertIsNode($nodes, 'select');
 
-        $nodes = XDOM::find($doc, 'div + i');
+        $nodes = XDOM::query($doc, 'div + i');
         $this->assertEquals(3, $nodes->length);
         $this->assertIsNode($nodes, 'i');
         $this->assertAttrValue("i-1-1", $nodes->item(0), 'class');
         $this->assertAttrValue("i-2-1", $nodes->item(1), 'class');
         $this->assertAttrValue("i-3-1", $nodes->item(2), 'class');
 
-        $nodes = XDOM::find($doc, 'div ~ i');
+        $nodes = XDOM::query($doc, 'div ~ i');
         $this->assertEquals(8, $nodes->length);
         $this->assertIsNode($nodes, 'i');
 
-        $nodes = XDOM::find($doc, 'nav');
+        $nodes = XDOM::query($doc, 'nav');
         $this->assertEquals(1, $nodes->length);
         $this->assertIsNode($nodes, 'nav');
 
-        $nodes = XDOM::find($doc, 'body > nav');
+        $nodes = XDOM::query($doc, 'body > nav');
         $this->assertEquals(1, $nodes->length);
         $this->assertIsNode($nodes, 'nav');
 
-        $nodes = XDOM::find($doc, 'article');
+        $nodes = XDOM::query($doc, 'article');
         $this->assertEquals(1, $nodes->length);
         $this->assertIsNode($nodes, 'article');
     }
@@ -174,53 +175,67 @@ HTML
     {
         $doc = $this->loadDoc();
 
-        $nodes = XDOM::find($doc, 'section');
+        $nodes = XDOM::query($doc, ':has(body)');
+        $this->assertEquals(1, $nodes->length);
+
+        $nodes = XDOM::query($doc, 'section');
         $this->assertEquals(2, $nodes->length);
         $this->assertIsNode($nodes, 'section');
 
-        $nodes = XDOM::find($doc, 'section:first-child');
+        $sections = XDOM::query($doc, 'section:has([index="1"])');
+        $this->assertEquals(2, $nodes->length);
+        $this->assertIsNode($nodes, 'section');
+
+        $nodes = XDOM::query($sections, ':has([index="1"])');
+        $this->assertEquals(0, $nodes->length);
+
+        $nodes = XDOM::query($sections, '[index="1"]');
+        $this->assertEquals(2, $nodes->length);
+        $this->assertIsNode($nodes, 'span');
+
+        $nodes = XDOM::query($doc, 'section:first-child');
         $this->assertEquals(1, $nodes->length);
         $this->assertIsNode($nodes, 'section');
         $this->assertAttrValue("1", $nodes, 'id');
 
-        $nodes = XDOM::find($doc, '[index]');
+        $nodes = XDOM::query($doc, '[index]');
         $this->assertEquals(12, $nodes->length);
         $this->assertIsNode($nodes, 'span');
 
-        $nodes = XDOM::find($doc, '.text.bold');
+        $nodes = XDOM::query($doc, '.text.bold');
         $this->assertEquals(6, $nodes->length);
         $this->assertIsNode($nodes, 'span');
 
-        $nodes = XDOM::find($doc, 'section:first-child .text.bold');
+        $nodes = XDOM::query($doc, 'section:first-child .text.bold');
         $this->assertEquals(3, $nodes->length);
         $this->assertIsNode($nodes, 'span');
 
-        $nodes = XDOM::find($doc, 'section .text');
+        $nodes = XDOM::query($doc, 'section .text');
         $this->assertEquals(12, $nodes->length);
         $this->assertIsNode($nodes, 'span');
 
-        $nodes = XDOM::find($doc, 'section .text:nth-child(odd)');
+        $nodes = XDOM::query($doc, 'section .text:nth-child(odd)');
         $this->assertEquals(6, $nodes->length);
         $this->assertIsNode($nodes, 'span');
         foreach ($nodes as $idx => $node) {
             $this->assertAttrValue(($idx * 2) % 6, $node, 'index');
         }
 
-        $nodes = XDOM::find($doc, 'section .text:first-child');
+        $nodes = XDOM::query($doc, 'section .text:first-child');
         $this->assertEquals(2, $nodes->length);
         $this->assertIsNode($nodes, 'span');
         foreach ($nodes as $node) {
             $this->assertAttrValue(0, $node, 'index');
         }
 
-        $nodes = XDOM::find($doc, '.text:not(.bold)');
+        $nodes = XDOM::query($doc, '.text:not(.bold)');
         $this->assertEquals(6, $nodes->length);
         $this->assertIsNode($nodes, 'span');
         foreach ($nodes as $idx => $node) {
             $this->assertAttrValue($idx % 3, $node, 'index');
         }
 
-        $nodes = XDOM::find($doc, '.text:not(.bold):not(:contains(S1))');
+        $nodes = XDOM::query($doc, '.text:not(.bold):not(:contains(S1))');
         $this->assertEquals(3, $nodes->length);
         $this->assertIsNode($nodes, 'span');
         foreach ($nodes as $idx => $node) {
@@ -228,98 +243,98 @@ HTML
             $this->assertStringStartsWith('S2', $node->textContent);
         }
 
-        $nodes = XDOM::find($doc, 'a:not(:has(span))');
+        $nodes = XDOM::query($doc, 'a:not(:has(span))');
         $this->assertEquals(2, $nodes->length);
         $this->assertIsNode($nodes, 'a');
         $this->assertAttrValue('#href_1', $nodes->item(0), 'href');
         $this->assertAttrValue('#href_4', $nodes->item(1), 'href');
 
-        $nodes = XDOM::find($doc, 'a:not(:has(span)):first');
+        $nodes = XDOM::query($doc, 'a:not(:has(span)):first');
         $this->assertEquals(1, $nodes->length);
         $this->assertIsNode($nodes, 'a');
         $this->assertAttrValue('#href_1', $nodes, 'href');
 
-        $nodes = XDOM::find($doc, 'a:not(:has(span)):last');
+        $nodes = XDOM::query($doc, 'a:not(:has(span)):last');
         $this->assertEquals(1, $nodes->length);
         $this->assertIsNode($nodes, 'a');
         $this->assertAttrValue('#href_4', $nodes, 'href');
 
-        $nodes = XDOM::find($doc, 'a:has(span) :first');
+        $nodes = XDOM::query($doc, 'a:has(span) :first');
         $this->assertEquals(1, $nodes->length);
         $this->assertIsNode($nodes, 'span');
         $this->assertTextContent('span_link_1', $nodes);
-        $nodes = XDOM::find($doc, 'a:has(span) :last');
+        $nodes = XDOM::query($doc, 'a:has(span) :last');
         $this->assertEquals(1, $nodes->length);
         $this->assertIsNode($nodes, 'span');
         $this->assertTextContent('span_link_2', $nodes);
 
-        $nodes = XDOM::find($doc, 'a:has(span):first :last');
+        $nodes = XDOM::query($doc, 'a:has(span):first :last');
         $this->assertEquals(1, $nodes->length);
         $this->assertIsNode($nodes, 'span');
         $this->assertTextContent('span_link_1', $nodes);
-        $nodes = XDOM::find($doc, 'a:has(span):last :first');
+        $nodes = XDOM::query($doc, 'a:has(span):last :first');
         $this->assertEquals(1, $nodes->length);
         $this->assertIsNode($nodes, 'span');
         $this->assertTextContent('span_link_2', $nodes);
 
-        $nodes = XDOM::find($doc, 'div a, p a');
+        $nodes = XDOM::query($doc, 'div a, p a');
         $this->assertEquals(4, $nodes->length);
         $this->assertIsNode($nodes, 'a');
 
-        $nodes = XDOM::find($doc, 'div a:not(:has(span)), p a:not(:has(span))');
+        $nodes = XDOM::query($doc, 'div a:not(:has(span)), p a:not(:has(span))');
         $this->assertEquals(2, $nodes->length);
         $this->assertIsNode($nodes, 'a');
 
-        $nodes = XDOM::find($doc, 'div a:first, p a:first');
+        $nodes = XDOM::query($doc, 'div a:first, p a:first');
         $this->assertEquals(2, $nodes->length);
         $this->assertIsNode($nodes, 'a');
 
-        $nodes = XDOM::find($doc, 'div:first');
-        $a = XDOM::find($nodes->item(0), 'a');
+        $nodes = XDOM::query($doc, 'div:first');
+        $a = XDOM::query($nodes->item(0), 'a');
         $this->assertEquals(2, $a->length);
         $this->assertIsNode($a, 'a');
         $this->assertAttrValue("#href_3", $a->item(0), 'href');
         $this->assertAttrValue("#href_4", $a->item(1), 'href');
 
-        $a = XDOM::find($nodes->item(0), 'a:first');
+        $a = XDOM::query($nodes->item(0), 'a:first');
         $this->assertEquals(1, $a->length);
         $this->assertIsNode($a, 'a');
         $this->assertAttrValue("#href_3", $a->item(0), 'href');
 
-        $a = XDOM::find($nodes->item(0), 'a:last');
+        $a = XDOM::query($nodes->item(0), 'a:last');
         $this->assertEquals(1, $a->length);
         $this->assertIsNode($a, 'a');
         $this->assertAttrValue("#href_4", $a->item(0), 'href');
 
-        $a = XDOM::find($nodes->item(0), '.link');
+        $a = XDOM::query($nodes->item(0), '.link');
         $this->assertEquals(1, $a->length);
         $this->assertIsNode($a, 'a');
         $this->assertAttrValue("#href_4", $a->item(0), 'href');
 
-        $a = XDOM::find($nodes->item(0), '> .link');
+        $a = XDOM::query($nodes->item(0), '> .link');
         $this->assertEquals(1, $a->length);
         $this->assertIsNode($a, 'a');
         $this->assertAttrValue("#href_4", $a->item(0), 'href');
 
-        $a = XDOM::find($nodes->item(0), '> .link, > .btn');
+        $a = XDOM::query($nodes->item(0), '> .link, > .btn');
         $this->assertEquals(2, $a->length);
         $this->assertIsNode($a, 'a');
         $this->assertAttrValue("#href_3", $a->item(0), 'href');
         $this->assertAttrValue("#href_4", $a->item(1), 'href');
 
-        $btn = XDOM::find($doc, ':header');
+        $btn = XDOM::query($doc, ':header');
         $this->assertEquals(6, $btn->length);
         $this->assertIsNode($btn, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
 
-        $btn = XDOM::find($doc, 'nav:first :header');
+        $btn = XDOM::query($doc, 'nav:first :header');
         $this->assertEquals(6, $btn->length);
         $this->assertIsNode($btn, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
 
-        $btn = XDOM::find($doc, 'nav:first :header:odd');
+        $btn = XDOM::query($doc, 'nav:first :header:odd');
         $this->assertEquals(3, $btn->length);
         $this->assertIsNode($btn, ['h1', 'h3', 'h5']);
 
-        $btn = XDOM::find($doc, 'form :input');
+        $btn = XDOM::query($doc, 'form :input');
         $this->assertEquals(15, $btn->length);
         $this->assertIsNode($btn, [
             'input',
@@ -339,115 +354,156 @@ HTML
             'button'
         ]);
 
-        $btn = XDOM::find($doc, 'form :button');
+        $btn = XDOM::query($doc, 'form :button');
         $this->assertEquals(3, $btn->length);
         $this->assertIsNode($btn, ['input', 'button', 'button']);
         $this->assertAttrValue('button', $btn->item(0), 'type');
 
-        $btn = XDOM::find($doc, 'form :input:button');
+        $btn = XDOM::query($doc, 'form :input:button');
         $this->assertEquals(3, $btn->length);
         $this->assertIsNode($btn, ['input', 'button', 'button']);
         $this->assertAttrValue('button', $btn->item(0), 'type');
 
-        $btn = XDOM::find($doc, 'form :submit');
+        $btn = XDOM::query($doc, 'form :submit');
         $this->assertEquals(3, $btn->length);
         $this->assertIsNode($btn, ['input', 'button', 'button']);
 
         foreach (['password', 'file'] as $type) {
-            $inputs = XDOM::find($doc, 'form :' . $type);
+            $inputs = XDOM::query($doc, 'form :' . $type);
             $this->assertEquals(1, $inputs->length);
             $this->assertIsNode($inputs, 'input');
             $this->assertAttrValue($type, $inputs, 'type');
         }
 
-        $inputs = XDOM::find($doc, 'form :checkbox');
+        $inputs = XDOM::query($doc, 'form :checkbox');
         $this->assertEquals(2, $inputs->length);
         $this->assertIsNode($inputs, 'input');
         $this->assertAttrValue('checkbox', $inputs->item(0), 'type');
         $this->assertAttrValue('checkbox', $inputs->item(1), 'type');
 
-        $inputs = XDOM::find($doc, 'form :checkbox:checked');
+        $inputs = XDOM::query($doc, 'form :checkbox:checked');
         $this->assertEquals(1, $inputs->length);
         $this->assertIsNode($inputs, 'input');
         $this->assertAttrValue('checkbox', $inputs->item(0), 'type');
         $this->assertAttrValue('checked', $inputs->item(0), 'checked');
 
-        $inputs = XDOM::find($doc, 'form :checkbox:unchecked');
+        $inputs = XDOM::query($doc, 'form :checkbox:unchecked');
         $this->assertEquals(1, $inputs->length);
         $this->assertIsNode($inputs, 'input');
         $this->assertAttrValue('checkbox', $inputs->item(0), 'type');
         $this->assertAttrValue(null, $inputs->item(0), 'checked');
 
-        $inputs = XDOM::find($doc, 'form :radio:checked');
+        $inputs = XDOM::query($doc, 'form :radio:checked');
         $this->assertEquals(1, $inputs->length);
         $this->assertIsNode($inputs, 'input');
         $this->assertAttrValue('radio', $inputs->item(0), 'type');
         $this->assertAttrValue('checked', $inputs->item(0), 'checked');
 
-        $inputs = XDOM::find($doc, 'form :radio:unchecked');
+        $inputs = XDOM::query($doc, 'form :radio:unchecked');
         $this->assertEquals(1, $inputs->length);
         $this->assertIsNode($inputs, 'input');
         $this->assertAttrValue('radio', $inputs->item(0), 'type');
         $this->assertAttrValue(null, $inputs->item(0), 'checked');
 
-        $inputs = XDOM::find($doc, 'form :checked');
+        $inputs = XDOM::query($doc, 'form :checked');
         $this->assertEquals(4, $inputs->length);
         $this->assertIsNode($inputs, ['input', 'input', 'option', 'option']);
 
-        $inputs = XDOM::find($doc, 'form :selected');
+        $inputs = XDOM::query($doc, 'form :selected');
         $this->assertEquals(2, $inputs->length);
         $this->assertIsNode($inputs, ['option', 'option']);
         $this->assertAttrValue('selected', $inputs->item(0), 'selected');
         $this->assertAttrValue('selected', $inputs->item(1), 'selected');
 
-        $inputs = XDOM::find($doc, 'form option:unselected');
+        $inputs = XDOM::query($doc, 'form option:unselected');
         $this->assertEquals(2, $inputs->length);
         $this->assertIsNode($inputs, ['option', 'option']);
         $this->assertAttrValue(null, $inputs->item(0), 'selected');
         $this->assertAttrValue(null, $inputs->item(1), 'selected');
 
-        $attrs = XDOM::find($doc, '[attr]');
+        $attrs = XDOM::query($doc, '[attr]');
         $this->assertEquals(8, $attrs->length);
         $this->assertIsNode($attrs, 'attr');
 
-        $attrs = XDOM::find($doc, '[attr=attr]');
+        $attrs = XDOM::query($doc, '[attr=attr]');
         $this->assertEquals(1, $attrs->length);
         $this->assertIsNode($attrs, 'attr');
 
-        $attrs = XDOM::find($doc, '[attr^=attr]');
+        $attrs = XDOM::query($doc, '[attr^=attr]');
         $this->assertEquals(8, $attrs->length);
         $this->assertIsNode($attrs, 'attr');
 
-        $attrs = XDOM::find($doc, '[attr|=attr]');
+        $attrs = XDOM::query($doc, '[attr|=attr]');
         $this->assertEquals(4, $attrs->length);
         $this->assertIsNode($attrs, 'attr');
 
-        $attrs = XDOM::find($doc, '[attr^=attr-section]');
+        $attrs = XDOM::query($doc, '[attr^=attr-section]');
         $this->assertEquals(3, $attrs->length);
         $this->assertIsNode($attrs, 'attr');
 
-        $attrs = XDOM::find($doc, '[attr|=attr-section]');
+        $attrs = XDOM::query($doc, '[attr|=attr-section]');
         $this->assertEquals(3, $attrs->length);
         $this->assertIsNode($attrs, 'attr');
 
-        $attrs = XDOM::find($doc, '[attr$=section-1]');
+        $attrs = XDOM::query($doc, '[attr$=section-1]');
         $this->assertEquals(2, $attrs->length);
         $this->assertIsNode($attrs, 'attr');
     }
 
+    /**
+     * @throws \XDOM\Exceptions\Exception
+     */
     public function testQueryNodeList()
     {
         $doc = $this->loadDoc();
 
-        $nodes = XDOM::find($doc, 'section');
+        $nodes = XDOM::query($doc, 'section');
 
-        $spans = XDOM::find($nodes, 'span');
+        $spans = XDOM::query($nodes, 'span');
         $this->assertEquals(12, $spans->length);
         $this->assertIsNode($spans, 'span');
 
-        $spans = XDOM::find($nodes, 'span:first');
+        $spans = XDOM::query($nodes, 'span:first');
         $this->assertEquals(2, $spans->length);
         $this->assertIsNode($spans, 'span');
+    }
+
+    public function testWrapper()
+    {
+        $doc = $this->loadDoc();
+        $xdoc = new XDOM($doc);
+
+        $sections = $xdoc->find('section');
+
+        $this->assertCount(2, $sections);
+
+        $spans = $sections->find('span');
+
+        $this->assertCount(12, $spans);
+
+        foreach ($spans as $span) {
+            $this->assertInstanceOf(XDOM::class, $span);
+            $this->assertEquals(1, $span->count());
+            $this->assertNotEmpty($span->attr('index'));
+        }
+
+        $pspans = $spans->prevSibling();
+        $this->assertCount(10, $pspans);
+        $nspans = $spans->nextSibling();
+        $this->assertCount(10, $nspans);
+
+
+        $spans = $sections->children();
+
+        $this->assertCount(12, $spans);
+
+        $sections = new XDOM(XDOM::query($doc, 'section'));
+
+        $this->assertCount(2, $sections);
+
+        foreach ($sections as $section) {
+            $this->assertCount(6, $section->find('span'));
+        }
     }
 
     private function assertIsNode(\DOMNodeList $nodes, $type)
@@ -479,7 +535,7 @@ HTML
             $node = $node->item(0);
         }
 
-        $this->assertEquals($expected, XDOM::attr($node, $attr));
+        $this->assertEquals($expected, (new XDOM($node))->attr($attr));
     }
 
 }

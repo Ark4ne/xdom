@@ -13,7 +13,7 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
 {
 
     /**
-     * @param \DOMNode|\DOMNode[]|\DOMNodeList $node
+     * @param \DOMDocument|\DOMElement|\DOMNode[]|\DOMNodeList $node
      * @param string $query
      *
      * @return \DOMNodeList
@@ -26,13 +26,13 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
         if ($node instanceof \DOMDocument) {
             $xpath = new \DOMXPath($node);
             $xquery = Parser::parse($query);
-        } elseif ($node instanceof \DOMNode) {
+        } elseif ($node instanceof \DOMElement) {
             $xpath = new \DOMXPath($node->ownerDocument);
             $xquery = Parser::parse($query, $node->getNodePath());
         } elseif ($node instanceof \DOMNodeList || is_array($node)) {
             $xpath = new \DOMXPath($node[0]->ownerDocument ?? $node[0]);
             foreach ($node as $item) {
-                /** @var \DOMNode $item */
+                /** @var \DOMElement $item */
                 $xqueries[] = Parser::parse($query, $item->getNodePath());
             }
 
@@ -59,17 +59,22 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
         return $return;
     }
 
-    /** @var \DOMNode[]|\DOMNodeList */
+    /** @var \DOMElement[]|\DOMNode[]|\DOMNodeList */
     private $ctx;
 
     /** @var int */
     private $idx = 0;
 
+    /**
+     * XDOM constructor.
+     *
+     * @param \DOMNode|\DOMNode[]|\DOMNodeList $ctx
+     */
     public function __construct($ctx)
     {
         if ($ctx instanceof \DOMNodeList || is_array($ctx)) {
             $this->ctx = $ctx;
-        } elseif ($ctx instanceof \DOMNode) {
+        } elseif ($ctx instanceof \DOMElement || $ctx instanceof \DOMDocument) {
             $this->ctx = [$ctx];
         } else {
             throw new \InvalidArgumentException('Wrong arugment type');
@@ -83,7 +88,7 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
 
     public function filter($selector): self
     {
-        if (0 === $this->count()) {
+        if (!$this->count()) {
             return new self([]);
         }
 
@@ -163,7 +168,10 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
         $nodes = [];
 
         foreach ($this->ctx as $ctx) {
-            $nodes[] = $ctx->parentNode;
+            $parent = $ctx->parentNode;
+            if (!is_null($parent) && !isset($nodes[$path = $parent->getNodePath()])) {
+                $nodes[$path] = $parent;
+            }
         }
 
         return new self($nodes);
@@ -245,7 +253,7 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
 
     public function attr($attr)
     {
-        $node = $this->getFirstNode();
+        $node = $this->node();
 
         if (is_null($node)) {
             return null;
@@ -260,12 +268,7 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
         return $nattr->nodeValue;
     }
 
-    public function value()
-    {
-        return $this->_value(false);
-    }
-
-    private function _value($multiple = false)
+    public function value($multiple = false)
     {
         $values = [];
 
@@ -273,12 +276,12 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
             $tagName = $node->tagName;
             if ($tagName == 'select') {
                 $select = (new self($node));
-                $values[] = $select->find('option:selected')->_value($select->attr('multiple') === 'multiple');
+                $values[] = $select->find('option:selected')->value($select->attr('multiple') === 'multiple');
             } elseif ($tagName == 'textarea') {
                 $values[] = $node->nodeValue;
             }
 
-            $values[] = $this->attr('value');
+            $values[] = (new self($node))->attr('value');
         }
 
         if ($multiple) {
@@ -290,7 +293,7 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
 
     public function text()
     {
-        $node = $this->getFirstNode();
+        $node = $this->node();
 
         if (is_null($node)) {
             return null;
@@ -299,72 +302,38 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
         return $node->textContent;
     }
 
-    private function getFirstNode()
-    {
-        return $this->ctx instanceof \DOMNodeList ? $this->ctx->item(0) : $this->ctx[0] ?? null;
-    }
-
     /**
      * Whether a offset exists
      *
-     * @link http://php.net/manual/en/arrayaccess.offsetexists.php
+     * @param int $offset
      *
-     * @param mixed $offset <p>
-     * An offset to check for.
-     * </p>
-     *
-     * @return boolean true on success or false on failure.
-     * </p>
-     * <p>
-     * The return value will be casted to boolean if non-boolean was returned.
-     * @since 5.0.0
+     * @return boolean
      */
     public function offsetExists($offset)
     {
-        if ($this->ctx instanceof \DOMNodeList) {
-            return $offset < $this->ctx->length;
-        }
-
-        return isset($offset[0]);
+        return isset($this->ctx[$offset]);
     }
 
     /**
      * Offset to retrieve
      *
-     * @link http://php.net/manual/en/arrayaccess.offsetget.php
-     *
-     * @param mixed $offset <p>
-     * The offset to retrieve.
-     * </p>
+     * @param int $offset
      *
      * @return self|null
-     * @since 5.0.0
      */
     public function offsetGet($offset)
     {
-        if ($this->ctx instanceof \DOMNodeList) {
-            $node = $this->ctx->item($offset);
-
-            return is_null($node) ? null : new self($node);
-        }
-
-        return new self($this->getFirstNode());
+        return isset($this->ctx[$offset])
+          ? new self($this->ctx[$offset])
+          : null;
     }
 
     /**
-     * Offset to set
-     *
-     * @link http://php.net/manual/en/arrayaccess.offsetset.php
-     *
-     * @param mixed $offset <p>
-     * The offset to assign the value to.
-     * </p>
-     * @param mixed $value <p>
-     * The value to set.
-     * </p>
-     *
+     * @param $offset
+     * @param $value
      * @return void
-     * @since 5.0.0
+     *
+     * @throws \LogicException
      */
     public function offsetSet($offset, $value)
     {
@@ -372,16 +341,10 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
     }
 
     /**
-     * Offset to unset
-     *
-     * @link http://php.net/manual/en/arrayaccess.offsetunset.php
-     *
-     * @param mixed $offset <p>
-     * The offset to unset.
-     * </p>
-     *
+     * @param $offset
      * @return void
-     * @since 5.0.0
+     *
+     * @throws \LogicException
      */
     public function offsetUnset($offset)
     {

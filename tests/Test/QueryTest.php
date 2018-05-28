@@ -13,12 +13,13 @@ use XDOM\XDOM;
  */
 class QueryTest extends TestCase
 {
+
     private function loadDoc()
     {
         $doc = new \DOMDocument();
 
         @$doc->loadHTML(
-            <<<HTML
+          <<<HTML
 <html>
 <head></head>
 <body class="body-class" main>
@@ -58,25 +59,31 @@ class QueryTest extends TestCase
     </nav>
     <form>
         <input/>
-        <input type="button"/>
-        <input type="checkbox"/>
-        <input type="checkbox" checked/>
-        <input type="file"/>
-        <input type="password"/>
-        <input type="radio"/>
-        <input type="radio" checked/>
-        <input type="submit"/>
-        <input type="text"/>
-        <input type="reset"/>
+        <input type="button" value="button"/>
+        <input type="checkbox" value="checkbox"/>
+        <input type="checkbox" value="checkbox_checked" checked/>
+        <input type="file" value="file"/>
+        <input type="password" value="password"/>
+        <input type="radio" value="radio"/>
+        <input type="radio" value="radio_checked" checked/>
+        <input type="submit" value="submit"/>
+        <input type="text" value="text"/>
+        <input type="reset" value="reset"/>
         <select>
-            <option>opt_1</option>
-            <option>opt_2</option>
-            <option selected>opt_3</option>
-            <option selected>opt_4</option>
+            <option value="opt_1">opt_1</option>
+            <option value="opt_2">opt_2</option>
+            <option value="opt_3" selected>opt_3</option>
+            <option value="opt_4" selected>opt_4</option>
+        </select>
+        <select multiple>
+            <option value="opt_1">opt_1</option>
+            <option value="opt_2">opt_2</option>
+            <option value="opt_3" selected>opt_3</option>
+            <option value="opt_4" selected>opt_4</option>
         </select>
         <textarea></textarea>
-        <button id="btn_1"></button>
-        <button type="submit" id="btn_1"></button>
+        <button id="btn_1" value="button"></button>
+        <button type="submit" id="btn_2" value="button_submit"></button>
     </form>
     
     <div class="col-lg-1">
@@ -335,23 +342,24 @@ HTML
         $this->assertIsNode($btn, ['h1', 'h3', 'h5']);
 
         $btn = XDOM::query($doc, 'form :input');
-        $this->assertEquals(15, $btn->length);
+        $this->assertEquals(16, $btn->length);
         $this->assertIsNode($btn, [
-            'input',
-            'input',
-            'input',
-            'input',
-            'input',
-            'input',
-            'input',
-            'input',
-            'input',
-            'input',
-            'input',
-            'select',
-            'textarea',
-            'button',
-            'button'
+          'input',
+          'input',
+          'input',
+          'input',
+          'input',
+          'input',
+          'input',
+          'input',
+          'input',
+          'input',
+          'input',
+          'select',
+          'select',
+          'textarea',
+          'button',
+          'button',
         ]);
 
         $btn = XDOM::query($doc, 'form :button');
@@ -406,20 +414,24 @@ HTML
         $this->assertAttrValue(null, $inputs->item(0), 'checked');
 
         $inputs = XDOM::query($doc, 'form :checked');
-        $this->assertEquals(4, $inputs->length);
-        $this->assertIsNode($inputs, ['input', 'input', 'option', 'option']);
+        $this->assertEquals(6, $inputs->length);
+        $this->assertIsNode($inputs, ['input', 'input', 'option', 'option', 'option', 'option']);
 
         $inputs = XDOM::query($doc, 'form :selected');
-        $this->assertEquals(2, $inputs->length);
+        $this->assertEquals(4, $inputs->length);
         $this->assertIsNode($inputs, ['option', 'option']);
         $this->assertAttrValue('selected', $inputs->item(0), 'selected');
         $this->assertAttrValue('selected', $inputs->item(1), 'selected');
+        $this->assertAttrValue('selected', $inputs->item(2), 'selected');
+        $this->assertAttrValue('selected', $inputs->item(3), 'selected');
 
         $inputs = XDOM::query($doc, 'form option:unselected');
-        $this->assertEquals(2, $inputs->length);
+        $this->assertEquals(4, $inputs->length);
         $this->assertIsNode($inputs, ['option', 'option']);
         $this->assertAttrValue(null, $inputs->item(0), 'selected');
         $this->assertAttrValue(null, $inputs->item(1), 'selected');
+        $this->assertAttrValue(null, $inputs->item(2), 'selected');
+        $this->assertAttrValue(null, $inputs->item(3), 'selected');
 
         $attrs = XDOM::query($doc, '[attr]');
         $this->assertEquals(8, $attrs->length);
@@ -533,8 +545,25 @@ HTML
         $nodes = $xdom->find('section span, div i');
         $this->assertCount(20, $nodes);
 
+        $i = $nodes->filter('i');
+        $this->assertCount(8, $i);
+        $i = $nodes->filter(function (XDOM $node) {
+            return $node->node()->tagName === 'i';
+        });
+        $this->assertCount(8, $i);
+
+        $div = $i->parent();
+        $this->assertCount(3, $div);
+
         $span = $nodes->filter('span');
         $this->assertCount(12, $span);
+        $span = $nodes->filter(function (XDOM $node) {
+            return $node->node()->tagName === 'span';
+        });
+        $this->assertCount(12, $span);
+
+        $sections = $span->parent();
+        $this->assertCount(2, $sections);
 
         $nodes = $span->parents('section');
         $this->assertCount(2, $nodes);
@@ -551,6 +580,42 @@ HTML
         $this->assertTrue($nodes->is('.body-class'));
         $this->assertTrue($nodes->is('[main]'));
         $this->assertFalse($nodes->is('section'));
+    }
+
+    public function testValue()
+    {
+        $doc =$this->loadDoc();
+        $xdom = new XDOM($doc);
+
+        $inputs = $xdom->find(':input');
+        $this->assertCount(16, $inputs);
+
+        foreach ($inputs as $input) {
+            switch ($input->attr('type')) {
+                case 'checkbox':
+                case 'radio':
+                    $this->assertEquals(
+                      $input->attr('type') . ($input->attr('checked') ? '_checked' : ''),
+                      $input->value()
+                    );
+                    break;
+                default:
+                    if ($input->node()->tagName === 'select') {
+                        if ($input->attr('multiple')) {
+                            $this->assertEquals(['opt_3', 'opt_4'], $input->value());
+                        } else {
+                            $this->assertEquals('opt_3', $input->value());
+                        }
+                    } elseif ($input->node()->tagName === 'button') {
+                        $this->assertEquals(
+                          'button' . ($input->attr('type') ? '_' . $input->attr('type') : ''),
+                          $input->value()
+                        );
+                    } else {
+                        $this->assertEquals($input->attr('type'), $input->value());
+                    }
+            }
+        }
     }
 
     private function assertIsNode(\DOMNodeList $nodes, $type)

@@ -21,7 +21,7 @@ class QueryTest extends TestCase
             <<<HTML
 <html>
 <head></head>
-<body>
+<body class="body-class" main>
     <section id="1">
         <span index="0" class="text">S1 Bale</span>
         <span index="1" class="text">S1 Neeson</span>
@@ -484,7 +484,7 @@ HTML
         foreach ($spans as $span) {
             $this->assertInstanceOf(XDOM::class, $span);
             $this->assertEquals(1, $span->count());
-            $this->assertNotEmpty($span->attr('index'));
+            $this->assertNotNull($span->attr('index'));
         }
 
         $pspans = $spans->prevSibling();
@@ -504,6 +504,53 @@ HTML
         foreach ($sections as $section) {
             $this->assertCount(6, $section->find('span'));
         }
+    }
+
+    public function testFilter()
+    {
+        $doc = $this->loadDoc();
+
+        $xdom = new XDOM($doc);
+
+        $nodes = $xdom->find('section');
+        $this->assertCount(2, $nodes);
+
+        $nodes = $nodes->filter(':last');
+        $this->assertCount(1, $nodes);
+
+        $nodes = $xdom->find('section span')->filter(':odd');
+        $this->assertCount(6, $nodes);
+        foreach ($nodes as $node) {
+            $this->assertTrue($node->attr('index') % 2 === 0);
+        }
+
+        $nodes = $xdom->find('section span')->filter(':even');
+        $this->assertCount(6, $nodes);
+        foreach ($nodes as $node) {
+            $this->assertTrue($node->attr('index') % 2 === 1);
+        }
+
+        $nodes = $xdom->find('section span, div i');
+        $this->assertCount(20, $nodes);
+
+        $span = $nodes->filter('span');
+        $this->assertCount(12, $span);
+
+        $nodes = $span->parents('section');
+        $this->assertCount(2, $nodes);
+
+        $nodes = $span->parents('body');
+        $this->assertCount(1, $nodes);
+
+        $this->assertTrue($nodes->has('section'));
+        $this->assertTrue($nodes->has('span'));
+        $this->assertFalse($nodes->has('table'));
+        $this->assertFalse($nodes->has('body'));
+
+        $this->assertTrue($nodes->is('body'));
+        $this->assertTrue($nodes->is('.body-class'));
+        $this->assertTrue($nodes->is('[main]'));
+        $this->assertFalse($nodes->is('section'));
     }
 
     private function assertIsNode(\DOMNodeList $nodes, $type)

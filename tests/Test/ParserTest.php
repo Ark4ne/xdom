@@ -18,7 +18,7 @@ class ParserTest extends TestCase
         $data = [
             [
                 '#mw-content-text > table :not(a)',
-                '//*[@id="mw-content-text"]/table//*[not(a)]',
+                '//*[@id="mw-content-text"]/*[self::table]//*[not(self::a)]',
             ],
             [
                 '[name]:not(food:nth-child(even))',
@@ -38,7 +38,7 @@ class ParserTest extends TestCase
             ],
             [
                 'tr',
-                '//tr',
+                '//*[self::tr]',
             ],
             [
                 'tr.test',
@@ -46,19 +46,19 @@ class ParserTest extends TestCase
             ],
             [
                 '#mw-content-text table',
-                '//*[@id="mw-content-text"]//table',
+                '//*[@id="mw-content-text"]//*[self::table]',
             ],
             [
                 '#mw-content-text table.test a',
-                '//*[@id="mw-content-text"]//*[self::table and contains(concat(" ", normalize-space(@class), " "), " test ")]//a',
+                '//*[@id="mw-content-text"]//*[self::table and contains(concat(" ", normalize-space(@class), " "), " test ")]//*[self::a]',
             ],
             [
                 '#mw-content-text > table.test > a',
-                '//*[@id="mw-content-text"]/*[self::table and contains(concat(" ", normalize-space(@class), " "), " test ")]/a',
+                '//*[@id="mw-content-text"]/*[self::table and contains(concat(" ", normalize-space(@class), " "), " test ")]/*[self::a]',
             ],
             [
                 '#mw-content-text > a :not(span)',
-                '//*[@id="mw-content-text"]/a//*[not(span)]',
+                '//*[@id="mw-content-text"]/*[self::a]//*[not(self::span)]',
             ],
             [
                 '.foo .bar > [baz]',
@@ -86,7 +86,7 @@ class ParserTest extends TestCase
             ],
             [
                 '.foo:not(:has(a))',
-                '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and not(.//a)]',
+                '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and not(.//*[self::a])]',
             ],
             [
                 '.foo:not(:has(a#id))',
@@ -122,47 +122,47 @@ class ParserTest extends TestCase
             ],
             [
                 '.foo:not(:has(a > b))',
-                '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and not(.//a/b)]',
+                '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and not(.//*[self::a]/*[self::b])]',
             ],
             [
                 'main span:first-child',
-                '//main//*[self::span and (position() = 1)]',
+                '//*[self::main]//*[self::span and (position() = 1)]',
             ],
             [
                 'main ~ span:first-child',
-                '//main/following-sibling::*[self::span and (position() = 1)]',
+                '//*[self::main]/following-sibling::*[self::span and (position() = 1)]',
             ],
             [
                 'main ~ span:first',
-                '(//main/following-sibling::span)[1]',
+                '(//*[self::main]/following-sibling::*[self::span])[1]',
             ],
             [
                 'main ~ *:first',
-                '(//main/following-sibling::*)[1]',
+                '(//*[self::main]/following-sibling::*)[1]',
             ],
             [
                 'main + span:first-child',
-                '//main/following-sibling::*[self::span and (position() = 1) and position() = 1]',
+                '//*[self::main]/following-sibling::*[self::span and (position() = 1) and position() = 1]',
             ],
             [
                 'main + span:first',
-                '(//main/following-sibling::span[position() = 1])[1]',
+                '(//*[self::main]/following-sibling::*[self::span and position() = 1])[1]',
             ],
             [
                 'main + *:first',
-                '(//main/following-sibling::*[position() = 1])[1]',
+                '(//*[self::main]/following-sibling::*[position() = 1])[1]',
             ],
             [
                 'a:not(:has(span)):first',
-                '(//*[self::a and not(.//span)])[1]',
+                '(//*[self::a and not(.//*[self::span])])[1]',
             ],
             [
                 'section .text:first-child',
-                '//section//*[contains(concat(" ", normalize-space(@class), " "), " text ") and (position() = 1)]',
+                '//*[self::section]//*[contains(concat(" ", normalize-space(@class), " "), " text ") and (position() = 1)]',
             ],
             [
                 'section .text:first',
-                '(//section//*[contains(concat(" ", normalize-space(@class), " "), " text ")])[1]',
+                '(//*[self::section]//*[contains(concat(" ", normalize-space(@class), " "), " text ")])[1]',
             ],
             [
                 '.text:not(.bold)',
@@ -170,15 +170,15 @@ class ParserTest extends TestCase
             ],
             [
                 'span, a',
-                '(//span|//a)'
+                '(//*[self::span]|//*[self::a])'
             ],
             [
                 'span:first, a',
-                '((//span)[1]|//a)'
+                '((//*[self::span])[1]|//*[self::a])'
             ],
             [
                 'span:first, a:not(:contains(text))',
-                '((//span)[1]|//*[self::a and not(contains(text(), "text"))])'
+                '((//*[self::span])[1]|//*[self::a and not(contains(text(), "text"))])'
             ],
         ];
 

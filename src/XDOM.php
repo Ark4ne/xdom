@@ -11,9 +11,10 @@ use XDOM\Exceptions\Exception;
  */
 class XDOM implements \Iterator, \Countable, \ArrayAccess
 {
+
     /**
      * @param \DOMNode|\DOMNode[]|\DOMNodeList $node
-     * @param string                           $query
+     * @param string $query
      *
      * @return \DOMNodeList
      * @throws \XDOM\Exceptions\Exception
@@ -29,8 +30,7 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
             $xpath = new \DOMXPath($node->ownerDocument);
             $xquery = Parser::parse($query, $node->getNodePath());
         } elseif ($node instanceof \DOMNodeList || is_array($node)) {
-            $first = $node[0];
-            $xpath = new \DOMXPath($first instanceof \DOMDocument ? $first : $first->ownerDocument);
+            $xpath = new \DOMXPath($node[0]->ownerDocument ?? $node[0]);
             foreach ($node as $item) {
                 /** @var \DOMNode $item */
                 $xqueries[] = Parser::parse($query, $item->getNodePath());
@@ -79,6 +79,168 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
     public function find($selector): self
     {
         return new self(XDOM::query($this->ctx, $selector));
+    }
+
+    public function filter($selector): self
+    {
+        if (0 === $this->count()) {
+            return new self([]);
+        }
+
+        if ($selector instanceof \Closure) {
+            foreach ($this->ctx as $idx => $ctx) {
+                if (true === $selector(new self($ctx), $idx)) {
+                    $nodes[] = $ctx;
+                }
+            }
+        } else {
+            foreach ($this->ctx as $ctx) {
+                $xqueries[] = $ctx->getNodePath();
+            }
+
+            $xpath = new \DOMXPath($this->ctx[0]->ownerDocument ?? $this->ctx[0]);
+
+            $xquery = Parser::parse('self::' . $selector, '(' . implode('|', $xqueries ?? []) . ')');
+
+            $nodes = $xpath->query($xquery);
+        }
+
+        return new self($nodes ?? []);
+    }
+
+    public function prevSibling(): self
+    {
+        $nodes = [];
+
+        foreach ($this->ctx as $ctx) {
+            $prev = $ctx->previousSibling;
+            while (!is_null($prev) && ($prev instanceof \DOMCharacterData)) {
+                $prev = $prev->previousSibling;
+            }
+            if (!is_null($prev)) {
+                $nodes[] = $prev;
+            };
+        }
+
+        return new self($nodes);
+    }
+
+
+    public function nextSibling(): self
+    {
+        $nodes = [];
+
+        foreach ($this->ctx as $ctx) {
+            $next = $ctx->nextSibling;
+            while (!is_null($next) && ($next instanceof \DOMCharacterData)) {
+                $next = $next->nextSibling;
+            }
+            if (!is_null($next)) {
+                $nodes[] = $next;
+            };
+        }
+
+        return new self($nodes);
+    }
+
+    public function children(): self
+    {
+        $nodes = [];
+
+        foreach ($this->ctx as $ctx) {
+            foreach ($ctx->childNodes as $childNode) {
+                if (!($childNode instanceof \DOMCharacterData)) {
+                    $nodes[] = $childNode;
+                };
+            }
+        }
+
+        return new self($nodes);
+    }
+
+    public function parent(): self
+    {
+        $nodes = [];
+
+        foreach ($this->ctx as $ctx) {
+            $nodes[] = $ctx->parentNode;
+        }
+
+        return new self($nodes);
+    }
+
+    public function parents($selector): self
+    {
+        $nodes = [];
+
+        foreach ($this->ctx as $ctx) {
+            if ($ctx instanceof \DOMDocument) {
+                continue;
+            }
+
+            $xpath = new \DOMXPath($ctx->ownerDocument);
+
+            $xquery = Parser::parse('ancestor::' . $selector);
+            $result = @$xpath->query($xquery, $ctx);
+
+            if (false === $result) {
+                throw new Exception("Wrong convertion : '$selector' => '$xquery'");
+            }
+
+            foreach ($result as $item) {
+                $path = $item->getNodePath();
+                if (!isset($nodes[$path])) {
+                    $nodes[$path] = $item;
+                }
+            }
+        }
+
+        return new self($nodes);
+    }
+
+    public function has($selector): bool
+    {
+        foreach ($this->ctx as $ctx) {
+            $xpath = new \DOMXPath($ctx->ownerDocument ?? $ctx);
+
+            $xquery = Parser::parse('descendant::' . $selector);
+            $result = @$xpath->query($xquery, $ctx);
+
+            if (false === $result) {
+                throw new Exception("Wrong convertion : '$selector' => '$xquery'");
+            }
+
+            if ($result->length > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function is($selector)
+    {
+        foreach ($this->ctx as $ctx) {
+            $xpath = new \DOMXPath($ctx->ownerDocument ?? $ctx);
+
+            $xquery = Parser::parse('self::' . $selector, $ctx->getNodePath());
+            $result = @$xpath->query($xquery);
+
+            if (false === $result) {
+                throw new Exception("Wrong convertion : '$selector' => '$xquery'");
+            }
+
+            if ($result->length > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function node($idx = 0)
+    {
+        return $this->ctx[$idx] ?? null;
     }
 
     public function attr($attr)
@@ -135,56 +297,6 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
         }
 
         return $node->textContent;
-    }
-
-    public function prevSibling(): self
-    {
-        $nodes = [];
-
-        foreach ($this->ctx as $ctx) {
-            $prev = $ctx->previousSibling;
-            while (!is_null($prev) && ($prev instanceof \DOMCharacterData)) {
-                $prev = $prev->previousSibling;
-            }
-            if (!is_null($prev)) {
-                $nodes[] = $prev;
-            };
-        }
-
-        return new self($nodes);
-    }
-
-
-    public function nextSibling(): self
-    {
-        $nodes = [];
-
-        foreach ($this->ctx as $ctx) {
-            $next = $ctx->nextSibling;
-            while (!is_null($next) && ($next instanceof \DOMCharacterData)) {
-                $next = $next->nextSibling;
-            }
-            if (!is_null($next)) {
-                $nodes[] = $next;
-            };
-        }
-
-        return new self($nodes);
-    }
-
-    public function children(): self
-    {
-        $nodes = [];
-
-        foreach ($this->ctx as $ctx) {
-            foreach ($ctx->childNodes as $childNode) {
-                if (!($childNode instanceof \DOMCharacterData)) {
-                    $nodes[] = $childNode;
-                };
-            }
-        }
-
-        return new self($nodes);
     }
 
     private function getFirstNode()

@@ -47,7 +47,7 @@ class Parser
     const x_comma = "@^" . self::_x_whitespace . "*," . self::_x_whitespace . "*@";
 
     /*private */
-    const x_combinators = "@^" . self::_x_whitespace . "*([>+~]|" . self::_x_whitespace . ")" . self::_x_whitespace . "*@";
+    const x_combinators = "@^" . self::_x_whitespace . "*((?:(?:self|ancestor|descendant|following|parent|preceding)(?:-(?:or-self|sibling))?::)|[>+~]|" . self::_x_whitespace . ")" . self::_x_whitespace . "*@";
 
     const X_ID = "@^#(" . self::_x_identifier . ")@";
 
@@ -261,7 +261,7 @@ class Parser
             case '+':
                 return function ($xpath, $section) {
                     if (empty($section['conditions'])) {
-                        $xpath .= '[position() = 1]';
+                        $xpath .= '*[position() = 1]';
                     } else {
                         $xpath = '*' . substr($xpath, 0, -1) . ' and position() = 1]';
                     }
@@ -269,17 +269,23 @@ class Parser
                     return '/following-sibling::' . $xpath;
                 };
             case '~':
+            case 'following-sibling::':
                 return '/following-sibling::*';
             case '>':
+            case 'child::':
                 return '/*';
+            case 'self::':
+                return function($xpath){return $xpath;};
+            case 'ancestor::':
+                return 'ancestor::*';
+            case 'descendant::':
+                return 'descendant::*';
             case ' ':
-                return '//*';
-            default:
-                if(is_null($token['value'])){
-                    return 'descendant-or-self::*';
-                }
+            case '':
                 return '//*';
         }
+
+        throw new Exception('Axis "' . $token['value'] . '" isn\'t supported');
     }
 
     private static function renderTag(array $token)
@@ -366,7 +372,7 @@ class Parser
             case 'not':
                 return 'not(' . self::render(self::preRender(self::tokenize($matched[1])), true) . ')';
             case 'has':
-                return '.' . self::parse($matched[1]);
+                return '.' . self::render(self::preRender(self::tokenize($matched[1])));
             case 'contains':
                 return 'contains(text(), "' . $matched[1] . '")';
             case 'header':
@@ -514,24 +520,21 @@ class Parser
                 if (is_null($section)) {
                     continue;
                 }
-                if (empty($section['conditions'])) {
-                    if (empty($section['tag'])) {
-                        $xsection = '';
-                    } else {
-                        $xsection = $section['tag'];
-                    }
-                } else {
-                    if (!empty($section['tag'])) {
+
+                $xsection = '';
+
+                if (!empty($section['tag'])) {
+                    if ($section['tag'] !== '*') {
                         array_unshift($section['conditions'], 'self::' . $section['tag']);
-                        $section['tag'] = null;
                     }
-
-                    $xsection =
-                        ($boolean ? '' : '[') .
-                        implode(' and ', $section['conditions']) .
-                        ($boolean ? '' : ']');
+                    $section['tag'] = null;
                 }
-
+                if (!empty($section['conditions'])) {
+                    $xsection =
+                      ($boolean ? '' : '[') .
+                      implode(' and ', $section['conditions']) .
+                      ($boolean ? '' : ']');
+                }
                 if (!$boolean || (!empty($section['tag']) && !empty($section['conditions']))) {
                     if (empty($section['combinator'])) {
                         $xsection = '//' . (empty($section['tag']) ? '*' : '') . $xsection;
@@ -574,7 +577,6 @@ class Parser
      *
      * @return string
      * @throws \XDOM\Exceptions\Exception
-     * @throws \XDOM\Exceptions\FormatException
      */
     public static function parse(string $selector, string $pre = null): string
     {

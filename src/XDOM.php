@@ -13,11 +13,12 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
 {
     /**
      * @param \DOMNode|\DOMNode[]|\DOMNodeList $node
-     * @param string                $query
+     * @param string                           $query
      *
      * @return \DOMNodeList
      * @throws \XDOM\Exceptions\Exception
      * @throws \XDOM\Exceptions\FormatException
+     * @throws \InvalidArgumentException
      */
     public static function query($node, string $query): \DOMNodeList
     {
@@ -28,18 +29,18 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
             $xpath = new \DOMXPath($node->ownerDocument);
             $xquery = Parser::parse($query, $node->getNodePath());
         } elseif ($node instanceof \DOMNodeList || is_array($node)) {
-            if ($node instanceof \DOMNodeList ? $node->length == 0 : empty($node)) {
-                return new \DOMNodeList();
-            } else {
-                $first = $node[0];
-                $xpath = new \DOMXPath($first instanceof \DOMDocument ? $first : $first->ownerDocument);
-                foreach ($node as $item) {
-                    /** @var \DOMNode $item */
-                    $xqueries[] = Parser::parse($query, $item->getNodePath());
-                }
-
-                $xquery = '(' . implode(' | ', $xqueries) . ')';
+            $first = $node[0];
+            $xpath = new \DOMXPath($first instanceof \DOMDocument ? $first : $first->ownerDocument);
+            foreach ($node as $item) {
+                /** @var \DOMNode $item */
+                $xqueries[] = Parser::parse($query, $item->getNodePath());
             }
+
+            if (empty($xqueries)) {
+                return new \DOMNodeList();
+            }
+
+            $xquery = '(' . implode(' | ', $xqueries) . ')';
         } else {
             throw new \InvalidArgumentException('Wrong argument type.');
         }
@@ -60,6 +61,9 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
 
     /** @var \DOMNode[]|\DOMNodeList */
     private $ctx;
+
+    /** @var int */
+    private $idx = 0;
 
     public function __construct($ctx)
     {
@@ -221,7 +225,7 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
      * The offset to retrieve.
      * </p>
      *
-     * @return self|null Can return all value types.
+     * @return self|null
      * @since 5.0.0
      */
     public function offsetGet($offset)
@@ -277,12 +281,12 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
      * Return the current element
      *
      * @link http://php.net/manual/en/iterator.current.php
-     * @return mixed Can return any type.
+     * @return self
      * @since 5.0.0
      */
     public function current()
     {
-        return new self(current($this->ctx));
+        return new self($this->ctx[$this->idx]);
     }
 
     /**
@@ -294,7 +298,7 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
      */
     public function next()
     {
-        next($this->ctx);
+        $this->idx++;
     }
 
     /**
@@ -306,7 +310,7 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
      */
     public function key()
     {
-        return key($this->ctx);
+        return $this->idx;
     }
 
     /**
@@ -319,7 +323,7 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
      */
     public function valid()
     {
-        return !is_null(key($this->ctx));
+        return isset($this->ctx[$this->idx]);
     }
 
     /**
@@ -331,7 +335,7 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
      */
     public function rewind()
     {
-        reset($this->ctx);
+        $this->idx = 0;
     }
 
     /**

@@ -302,6 +302,34 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
         return $node->textContent;
     }
 
+    public function html()
+    {
+        $node = $this->node();
+
+        if (is_null($node)) {
+            return null;
+        }
+
+        return $node->ownerDocument->saveHTML($node);
+    }
+
+    public function innerHtml()
+    {
+        $node = $this->node();
+
+        if (is_null($node)) {
+            return null;
+        }
+
+        $html = '';
+        $document = $node->ownerDocument;
+        foreach ($node->childNodes as $child) {
+            $html .= $document->saveHTML($child);
+        }
+
+        return $html;
+    }
+
     /**
      * Whether a offset exists
      *

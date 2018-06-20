@@ -30,7 +30,6 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
             $xpath = new \DOMXPath($node->ownerDocument);
             $xquery = Parser::parse($query, $node->getNodePath());
         } elseif ($node instanceof \DOMNodeList || is_array($node)) {
-            $xpath = new \DOMXPath($node[0]->ownerDocument ?? $node[0]);
             foreach ($node as $item) {
                 /** @var \DOMElement $item */
                 $xqueries[] = Parser::parse($query, $item->getNodePath());
@@ -39,6 +38,8 @@ class XDOM implements \Iterator, \Countable, \ArrayAccess
             if (empty($xqueries)) {
                 return new \DOMNodeList();
             }
+
+            $xpath = new \DOMXPath($node[0]->ownerDocument ?? $node[0]);
 
             $xquery = '(' . implode(' | ', $xqueries) . ')';
         } else {

@@ -112,14 +112,14 @@ class Parser
 
             $match[4] = +(
                 $match[4] ?? null
-                    ? intval($match[5]) + intval(empty($match[6]) ? 1 : $match[6])
+                    ? ($match[5] ?? '') . intval(empty($match[6]) ? 1 : $match[6])
                     : 2 * ($match[3] === 'even' || $match[3] === 'odd')
             );
 
             $match[5] = +(
-            empty(intval($match[7] ?? 0) + intval($match[8] ?? 0))
+            empty(($match[7] ?? '') . intval($match[8] ?? 0))
                 ? $match[3] === 'odd'
-                : intval($match[7] ?? 0) + intval($match[8] ?? 0)
+                : ($match[7] ?? '') . intval($match[8] ?? 0)
             );
 
         } elseif (empty($match[2])) {
@@ -348,17 +348,41 @@ class Parser
             case 'nth-child':
             case 'nth-of-type':
                 if (empty($matched[3])) {
-                    return '(position() mod ' . $matched[4] . ' = 1)';
+                    return '(position() = ' . $matched[4] . ')';
                 }
 
-                return '(position() mod ' . $matched[3] . ' = ' . $matched[4] . ')';
+                $position = '(position()' . ($matched[4] ?? null ? ' - ' . $matched[4] : '') . ')';
+
+                if ($matched[3] >= 0) {
+                    $s[] = '(' . $position . ' >= 0)';
+                } else {
+                    $s[] = '(' . $position . ' <= 0)';
+                }
+
+                $s[] = '(' . $position. ' mod ' . $matched[3] . ' = 0)';
+
+                return implode($s, ' and ');
             case 'nth-last-child':
             case 'nth-last-of-type':
                 if (empty($matched[3])) {
-                    return '((count() - position()) mod ' . $matched[4] . ' = 1)';
+                    return '(position() = last() - ' . (intval($matched[4]) - 1) . ')';
                 }
 
-                return '((count() - position()) mod ' . $matched[3] . ' = ' . $matched[4] . ')';
+                if (isset($matched[4]) && intval($matched[4]) - 1 !== 0) {
+                    $position = '(last() - position() - ' . (intval($matched[4]) - 1) . ')';
+                } else {
+                    $position = '(last() - position())';
+                }
+
+                if ($matched[3] >= 0) {
+                    $s[] = '(' . $position . ' >= 0)';
+                } else {
+                    $s[] = '(' . $position . ' <= 0)';
+                }
+
+                $s[] = '(' . $position. ' mod ' . $matched[3] . ' = 0)';
+
+                return implode($s, ' and ');
         }
 
         throw new Exception('Filter "' . $filter . '" isn\'t supported.');

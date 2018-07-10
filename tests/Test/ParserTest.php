@@ -74,8 +74,16 @@ class ParserTest extends TestCase
             ],
             [
                 '.foo:nth-child(3)',
-                '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and (position() mod 3 = 1)]',
+                '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and (position() = 3)]',
             ],
+          [
+            '.foo:nth-child(4n)',
+            '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and (position() mod 4 = 0)]',
+          ],
+          [
+            '.foo:nth-child(4n+1)',
+            '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and (position() - 1 >= 0) and (position() mod 4 = 0)]',
+          ],
             [
                 '#mw-content-text.foo.bar table#gt[attr*="test"].odd',
                 '//*[@id="mw-content-text" and contains(concat(" ", normalize-space(@class), " "), " foo ") and contains(concat(" ", normalize-space(@class), " "), " bar ")]//*[self::table and @id="gt" and contains(@attr, "test") and contains(concat(" ", normalize-space(@class), " "), " odd ")]',
@@ -180,6 +188,10 @@ class ParserTest extends TestCase
                 'span:first, a:not(:contains(text))',
                 '((//*[self::span])[1]|//*[self::a and not(contains(text(), "text"))])'
             ],
+            [
+                'span:nth-child(4n)',
+                '//*[self::span and (position() mod 4)]'
+            ],
         ];
 
         $_ = [];
@@ -201,5 +213,71 @@ class ParserTest extends TestCase
         $this->assertEquals($expected, $xpath);
 
         $this->assertInstanceOf(\DOMNodeList::class, (new \DOMXPath(new \DOMDocument()))->query($xpath));
+    }
+
+    public function testNthChild()
+    {
+        $this->assertEquals(
+          '//*[self::span and (position() = 3)]',
+          Parser::parse("span:nth-child(3)")
+        );
+
+        $this->assertEquals(
+          '//*[self::span and ((position() - 1) >= 0) and ((position() - 1) mod 2 = 0)]',
+          Parser::parse("span:nth-child(odd)")
+        );
+
+        $this->assertEquals(
+          '//*[self::span and ((position()) >= 0) and ((position()) mod 2 = 0)]',
+          Parser::parse("span:nth-child(even)")
+        );
+
+        $this->assertEquals(
+          '//*[self::span and ((position() - 1) >= 0) and ((position() - 1) mod 4 = 0)]',
+          Parser::parse("span:nth-child(4n+1)")
+        );
+
+        $this->assertEquals(
+          '//*[self::span and ((position() - -1) >= 0) and ((position() - -1) mod 2 = 0)]',
+          Parser::parse("span:nth-child(2n-1)")
+        );
+
+        $this->assertEquals(
+          '//*[self::span and ((position() - 3) <= 0) and ((position() - 3) mod -2 = 0)]',
+          Parser::parse("span:nth-child(-2n+3)")
+        );
+    }
+
+    public function testNthLastChild()
+    {
+        $this->assertEquals(
+          '//*[self::span and (position() = last() - 2)]',
+          Parser::parse("span:nth-last-child(3)")
+        );
+
+        $this->assertEquals(
+          '//*[self::span and ((last() - position()) >= 0) and ((last() - position()) mod 2 = 0)]',
+          Parser::parse("span:nth-last-child(odd)")
+        );
+
+        $this->assertEquals(
+          '//*[self::span and ((last() - position() - -1) >= 0) and ((last() - position() - -1) mod 2 = 0)]',
+          Parser::parse("span:nth-last-child(even)")
+        );
+
+        $this->assertEquals(
+          '//*[self::span and ((last() - position()) >= 0) and ((last() - position()) mod 4 = 0)]',
+          Parser::parse("span:nth-last-child(4n+1)")
+        );
+
+        $this->assertEquals(
+          '//*[self::span and ((last() - position() - -2) >= 0) and ((last() - position() - -2) mod 2 = 0)]',
+          Parser::parse("span:nth-last-child(2n-1)")
+        );
+
+        $this->assertEquals(
+          '//*[self::span and ((last() - position() - 2) <= 0) and ((last() - position() - 2) mod -2 = 0)]',
+          Parser::parse("span:nth-last-child(-2n+3)")
+        );
     }
 }

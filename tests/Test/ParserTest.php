@@ -22,19 +22,19 @@ class ParserTest extends TestCase
             ],
             [
                 '[name]:not(food:nth-child(even))',
-                '//*[@name and not(self::food and (position() mod 2 = 0))]',
+                '//*[@name and not(self::food and ((position()) >= 0) and ((position()) mod 2 = 0))]',
             ],
             [
                 '[name]:not(:nth-child(even))',
-                '//*[@name and not((position() mod 2 = 0))]',
+                '//*[@name and not(((position()) >= 0) and ((position()) mod 2 = 0))]',
             ],
             [
                 '[name]:has(food:nth-child(even))',
-                '//*[@name and .//*[self::food and (position() mod 2 = 0)]]',
+                '//*[@name and .//*[self::food and ((position()) >= 0) and ((position()) mod 2 = 0)]]',
             ],
             [
                 '[name]:has(food:nth-child(odd))',
-                '//*[@name and .//*[self::food and (position() mod 2 = 1)]]',
+                '//*[@name and .//*[self::food and ((position() - 1) >= 0) and ((position() - 1) mod 2 = 0)]]',
             ],
             [
                 'tr',
@@ -66,11 +66,11 @@ class ParserTest extends TestCase
             ],
             [
                 '.foo:nth-child(even)',
-                '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and (position() mod 2 = 0)]',
+                '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and ((position()) >= 0) and ((position()) mod 2 = 0)]',
             ],
             [
                 '.foo:nth-child(odd)',
-                '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and (position() mod 2 = 1)]',
+                '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and ((position() - 1) >= 0) and ((position() - 1) mod 2 = 0)]',
             ],
             [
                 '.foo:nth-child(3)',
@@ -78,11 +78,11 @@ class ParserTest extends TestCase
             ],
           [
             '.foo:nth-child(4n)',
-            '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and (position() mod 4 = 0)]',
+            '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and ((position()) >= 0) and ((position()) mod 4 = 0)]',
           ],
           [
             '.foo:nth-child(4n+1)',
-            '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and (position() - 1 >= 0) and (position() mod 4 = 0)]',
+            '//*[contains(concat(" ", normalize-space(@class), " "), " foo ") and ((position() - 1) >= 0) and ((position() - 1) mod 4 = 0)]',
           ],
             [
                 '#mw-content-text.foo.bar table#gt[attr*="test"].odd',
@@ -187,10 +187,6 @@ class ParserTest extends TestCase
             [
                 'span:first, a:not(:contains(text))',
                 '((//*[self::span])[1]|//*[self::a and not(contains(text(), "text"))])'
-            ],
-            [
-                'span:nth-child(4n)',
-                '//*[self::span and (position() mod 4)]'
             ],
         ];
 

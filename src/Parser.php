@@ -73,6 +73,16 @@ class Parser
     ];
 
     /**
+     * @var array Cache tokenized $selector
+     */
+    private static $tokenized = [];
+
+    /**
+     * @var string[] Cache parsed query
+     */
+    private static $parsed = [];
+
+    /**
      * @param array $match
      *
      * @return array
@@ -175,10 +185,8 @@ class Parser
      */
     public static function tokenize(string $selector, $parseOnly = false): array
     {
-        static $cache;
-
-        if (isset($cache[$selector])) {
-            return $parseOnly ? ['tokens' => $cache[$selector], 'excess' => 0] : $cache[$selector];
+        if (isset(self::$tokenized[$selector])) {
+            return $parseOnly ? ['tokens' => self::$tokenized[$selector], 'excess' => 0] : self::$tokenized[$selector];
         }
 
         $matched = null;
@@ -252,7 +260,7 @@ class Parser
             throw new Exception($query);
         }
 
-        return $cache[$selector] = $groups;
+        return self::$tokenized[$selector] = $groups;
     }
 
     private static function renderCombinator(array $token)
@@ -596,7 +604,7 @@ class Parser
     }
 
     /**
-     * @param string      $selector
+     * @param string $selector
      * @param string|null $pre
      *
      * @return string
@@ -604,11 +612,19 @@ class Parser
      */
     public static function parse(string $selector, string $pre = null): string
     {
-        static $cache;
-        if (isset($cache[$pre.$selector])) {
-            return $cache[$pre.$selector];
+        if (isset(self::$parsed[$pre . $selector])) {
+            return self::$parsed[$pre . $selector];
         }
 
-        return $cache[$pre.$selector] = self::render(self::preRender(self::tokenize($selector), $pre));
+        return self::$parsed[$pre . $selector] = self::render(self::preRender(self::tokenize($selector), $pre));
+    }
+
+    /**
+     * Clear caches
+     */
+    public static function clear()
+    {
+        self::$parsed = [];
+        self::$tokenized = [];
     }
 }
